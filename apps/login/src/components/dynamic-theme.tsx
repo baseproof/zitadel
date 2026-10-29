@@ -60,6 +60,7 @@ export function DynamicTheme({
                           <Logo
                             lightSrc={branding.lightTheme?.logoUrl}
                             darkSrc={branding.darkTheme?.logoUrl}
+                            themeMode={branding.themeMode}
                             height={150}
                             width={150}
                           />
@@ -104,6 +105,7 @@ export function DynamicTheme({
                       <Logo
                         lightSrc={branding.lightTheme?.logoUrl}
                         darkSrc={branding.darkTheme?.logoUrl}
+                        themeMode={branding.themeMode}
                         height={28}
                         width={94.5}
                       />

@@ -132,7 +132,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
           </span>
           <Link
             href={"/loginname?" + new URLSearchParams(requestId ? { requestId } : {})}
-            className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
+            className="tap-target text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
             data-testid="login-link"
           >
             <Translated i18nKey="logIn" namespace="register" />

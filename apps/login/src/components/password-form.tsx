@@ -217,7 +217,7 @@ export function PasswordForm({
           labelAction={
             !loginSettings?.hidePasswordReset && (
               <button
-                className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
+                className="tap-target text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
                 onClick={() => resetPasswordAndContinue()}
                 type="button"
                 disabled={loading}

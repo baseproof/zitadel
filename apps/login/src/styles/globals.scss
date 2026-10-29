@@ -15,6 +15,22 @@
   }
 }
 
+@layer components {
+  // A text link's touch target: 44px tall around its line (Apple's minimum),
+  // without moving the layout. "Get started" alone measured 21px on
+  // id.baseproof.ai, 2026-10-29.
+  .tap-target {
+    position: relative;
+  }
+  .tap-target::after {
+    content: "";
+    position: absolute;
+    inset: 50% -4px auto;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+}
+
 html {
   --background-color: #ffffff;
   --dark-background-color: #000000;

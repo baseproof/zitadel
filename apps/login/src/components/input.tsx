@@ -21,11 +21,12 @@ export type TextInputProps = DetailedHTMLProps<InputHTMLAttributes<HTMLInputElem
 };
 
 // Baseproof's field (baseproof/legal-agents#120): 44px, 8px corners, a ring
-// in branding's primary color on focus and in its warn color on an error.
+// in branding's primary color on focus and in its warn color on an error. Its
+// text is 16px: iOS Safari zooms the page into a focused field set smaller.
 const styles = (error: boolean, disabled: boolean, roundnessClasses: string = "rounded-[8px]") =>
   clsx(
     {
-      "h-[44px] w-full px-[14px] text-[15px] bg-transparent border grow transition-[border-color,box-shadow] duration-150 focus:outline-none focus:ring-0": true,
+      "h-[44px] w-full px-[14px] text-[16px] bg-transparent border grow transition-[border-color,box-shadow] duration-150 focus:outline-none focus:ring-0": true,
       "text-text-light-500 dark:text-text-dark-500 placeholder:text-[var(--bp-muted)]": true,
       "border-[var(--bp-input-border)] focus:border-primary-light-500 dark:focus:border-primary-dark-500 focus:shadow-[0_0_0_1px_var(--theme-light-primary-500)] dark:focus:shadow-[0_0_0_1px_var(--theme-dark-primary-500)]":
         !error,
