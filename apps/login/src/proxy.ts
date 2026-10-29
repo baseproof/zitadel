@@ -15,12 +15,6 @@ export async function proxy(request: NextRequest) {
   // Add the original URL as a header to all requests
   const requestHeaders = new Headers(request.headers);
 
-  // Extract "organization" search param from the URL and set it as a header if available
-  const organization = request.nextUrl.searchParams.get("organization");
-  if (organization) {
-    requestHeaders.set("x-zitadel-i18n-organization", organization);
-  }
-
   // Internal infrastructure routes — skip middleware entirely.
   // /healthy and /ready are Kubernetes/Docker health probes that must respond
   // without depending on a ZITADEL backend.

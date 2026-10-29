@@ -95,53 +95,6 @@ function freshCache<T>(key: string, fetcher: () => Promise<T>, ttlMs: number): P
   return promiseCache.getOrFetch(key, fetcher, ttlMs);
 }
 
-export async function getHostedLoginTranslation({
-  serviceConfig,
-  organization,
-  locale,
-  ignoreInheritance = false,
-}: WithServiceConfig<{
-  organization?: string;
-  locale?: string;
-  // Only this level's own texts, without what it inherits (the instance's,
-  // and Zitadel's built-in defaults).
-  ignoreInheritance?: boolean;
-}>) {
-  const fetcher = async () => {
-    const settingsService: Client<typeof SettingsService> = await createServiceForHost(SettingsService, serviceConfig);
-
-    return settingsService
-      .getHostedLoginTranslation(
-        {
-          level: organization
-            ? {
-                case: "organizationId",
-                value: organization,
-              }
-            : {
-                case: "instance",
-                value: true,
-              },
-          locale: locale,
-          ignoreInheritance,
-        },
-        {},
-      )
-      .then((resp) => {
-        return resp.translations ? resp.translations : undefined;
-      });
-  };
-
-  return freshCache(
-    instanceCacheKey(
-      serviceConfig,
-      `getHostedLoginTranslation-${organization || "instance"}-${locale || "default"}-${ignoreInheritance ? "own" : "inherited"}`,
-    ),
-    fetcher,
-    getTTLForKey("getHostedLoginTranslation", longCacheTTL),
-  );
-}
-
 export async function getBrandingSettings({
   serviceConfig,
   organization,
