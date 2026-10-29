@@ -68,8 +68,11 @@ export function SessionItem({ session, reload, requestId }: { session: Session; 
 
   const router = useRouter();
 
+  // The tooltip's provider is here, not in the root layout: the account picker
+  // is the login's one tooltip, and a provider in the layout put Radix's
+  // tooltip (18.6 KiB on the wire) on every page.
   return (
-    <>
+    <Tooltip.Provider>
       <Tooltip.Root delayDuration={300}>
         {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
         <Tooltip.Trigger asChild>
@@ -163,6 +166,6 @@ export function SessionItem({ session, reload, requestId }: { session: Session; 
         )}
       </Tooltip.Root>
       {error && <Alert>{error}</Alert>}
-    </>
+    </Tooltip.Provider>
   );
 }

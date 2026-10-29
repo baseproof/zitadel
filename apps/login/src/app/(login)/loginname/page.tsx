@@ -3,6 +3,7 @@ import { SignInWithIdp } from "@/components/sign-in-with-idp";
 import { Translated } from "@/components/translated";
 import { UsernameForm } from "@/components/username-form";
 import { getServiceConfig } from "@/lib/service-url";
+import { idpButtons } from "@/lib/idp";
 import { getActiveIdentityProviders, getBrandingSettings, getDefaultOrg, getLoginSettings } from "@/lib/zitadel";
 import { Organization } from "@zitadel/proto/zitadel/org/v2/org_pb";
 import { PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
@@ -64,7 +65,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
   const providerTiles =
     loginSettings?.allowExternalIdp && !!identityProviders?.length ? (
       <SignInWithIdp
-        identityProviders={identityProviders}
+        identityProviders={idpButtons(identityProviders)}
         requestId={requestId}
         organization={organization}
         postErrorRedirectUrl="/loginname"

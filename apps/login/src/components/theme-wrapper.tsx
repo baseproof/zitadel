@@ -1,64 +1,50 @@
 "use client";
 
-import { BrandingSettings, ThemeMode } from "@zitadel/proto/zitadel/settings/v2/branding_settings_pb";
 import { useTheme } from "next-themes";
-import { ReactNode, useEffect, useLayoutEffect } from "react";
-import { setThemeMode } from "./branding-context";
-import { BrandingStyle } from "./branding-style";
+import { ReactNode, useLayoutEffect } from "react";
+
+// The branding's theme mode as next-themes names it (dynamic-theme.tsx reads
+// it from the branding on the server): a forced light or dark, else the system's.
+export type ColorScheme = "light" | "dark" | "system";
 
 type Props = {
-  branding: BrandingSettings | undefined;
+  // undefined without a branding: the theme is left as it is
+  colorScheme?: ColorScheme;
   children: ReactNode;
 };
 
-export const ThemeWrapper = ({ children, branding }: Props) => {
+export const ThemeWrapper = ({ children, colorScheme }: Props) => {
   const { setTheme: setNextTheme } = useTheme();
-
-  // Publish themeMode to the module-level store so ThemeSwitch can read it
-  useEffect(() => {
-    setThemeMode(branding?.themeMode ?? ThemeMode.UNSPECIFIED);
-  }, [branding?.themeMode]);
 
   // Handle branding themeMode to force specific theme.
   // Uses useLayoutEffect to apply before paint and writes the forced value
   // to localStorage so next-themes doesn't fall back to system default.
   useLayoutEffect(() => {
-    if (branding?.themeMode !== undefined) {
-      switch (branding.themeMode) {
-        case ThemeMode.LIGHT:
-          document.documentElement.classList.remove("dark");
-          try {
-            localStorage.setItem("cp-theme", "light");
-          } catch {
-            /* localStorage unavailable (e.g. private mode) */
-          }
-          setNextTheme("light");
-          break;
-        case ThemeMode.DARK:
-          document.documentElement.classList.add("dark");
-          try {
-            localStorage.setItem("cp-theme", "dark");
-          } catch {
-            /* localStorage unavailable (e.g. private mode) */
-          }
-          setNextTheme("dark");
-          break;
-        case ThemeMode.AUTO:
-        case ThemeMode.UNSPECIFIED:
-        default:
-          setNextTheme("system");
-          break;
-      }
+    switch (colorScheme) {
+      case "light":
+        document.documentElement.classList.remove("dark");
+        try {
+          localStorage.setItem("cp-theme", "light");
+        } catch {
+          /* localStorage unavailable (e.g. private mode) */
+        }
+        setNextTheme("light");
+        break;
+      case "dark":
+        document.documentElement.classList.add("dark");
+        try {
+          localStorage.setItem("cp-theme", "dark");
+        } catch {
+          /* localStorage unavailable (e.g. private mode) */
+        }
+        setNextTheme("dark");
+        break;
+      case "system":
+        setNextTheme("system");
+        break;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branding?.themeMode]);
+  }, [colorScheme]);
 
-  // The branding's colors and font are in the page's HTML (BrandingStyle), so
-  // they hold from the first paint rather than after hydration.
-  return (
-    <div>
-      <BrandingStyle branding={branding} />
-      {children}
-    </div>
-  );
+  return <div>{children}</div>;
 };

@@ -1,9 +1,8 @@
-import { ThemeMode } from "@zitadel/proto/zitadel/settings/v2/branding_settings_pb";
-
 type Props = {
   darkSrc?: string;
   lightSrc?: string;
-  themeMode?: ThemeMode;
+  // a theme the branding forces; undefined when the theme follows the system
+  forcedTheme?: "light" | "dark";
   height?: number;
   width?: number;
 };
@@ -15,14 +14,12 @@ type Props = {
  * CSS, and both downloaded: 66 KiB on id.baseproof.ai, 2026-10-29. The logo is
  * a phone's largest paint, so it is fetched at high priority.
  */
-export function Logo({ lightSrc, darkSrc, themeMode, height = 40, width = 147.5 }: Props) {
-  const forcedDark = themeMode === ThemeMode.DARK;
-  const forcedLight = themeMode === ThemeMode.LIGHT;
-  const src = forcedDark ? darkSrc || lightSrc : lightSrc || darkSrc;
+export function Logo({ lightSrc, darkSrc, forcedTheme, height = 40, width = 147.5 }: Props) {
+  const src = forcedTheme === "dark" ? darkSrc || lightSrc : lightSrc || darkSrc;
   if (!src) {
     return null;
   }
-  const followsSystem = !forcedDark && !forcedLight && !!lightSrc && !!darkSrc;
+  const followsSystem = !forcedTheme && !!lightSrc && !!darkSrc;
   return (
     <picture>
       {followsSystem && <source srcSet={darkSrc} media="(prefers-color-scheme: dark)" />}

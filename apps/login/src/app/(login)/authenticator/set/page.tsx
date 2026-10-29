@@ -6,6 +6,7 @@ import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { SignInWithIdp } from "@/components/sign-in-with-idp";
 import { Translated } from "@/components/translated";
 import { getSessionCookieById } from "@/lib/cookies";
+import { idpButtons } from "@/lib/idp";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
 import { checkUserVerification } from "@/lib/verify-helper";
@@ -194,7 +195,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
             <SignInWithIdp
               showLabel={false}
-              identityProviders={identityProviders}
+              identityProviders={idpButtons(identityProviders)}
               requestId={requestId}
               organization={sessionWithData.factors?.user?.organizationId}
               sessionId={sessionWithData.id} // tell the callback function to link the IDP

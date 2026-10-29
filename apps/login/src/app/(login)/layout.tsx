@@ -2,13 +2,10 @@ import "@/styles/globals.scss";
 
 import { BackgroundWrapper } from "@/components/background-wrapper";
 import { LanguageProvider } from "@/components/language-provider";
-import { SaveDataProvider } from "@/components/save-data";
 import { Skeleton } from "@/components/skeleton";
 import { ThemeProvider } from "@/components/theme-provider";
-import * as Tooltip from "@radix-ui/react-tooltip";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
-import { headers } from "next/headers";
 import React, { Suspense } from "react";
 
 // Baseproof's favicons (cdn.baseproof.ai/web/favicons), served from public/
@@ -37,15 +34,12 @@ export async function generateMetadata(): Promise<Metadata> {
 // request with Save-Data: on gets no web font at all.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
-  const saveData = (await headers()).get("save-data")?.trim().toLowerCase() === "on";
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <head />
       <body>
         <ThemeProvider>
-          <SaveDataProvider saveData={saveData}>
-            <Tooltip.Provider>
               <Suspense
                 fallback={
                   <BackgroundWrapper
@@ -70,8 +64,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </BackgroundWrapper>
                 </LanguageProvider>
               </Suspense>
-            </Tooltip.Provider>
-          </SaveDataProvider>
         </ThemeProvider>
       </body>
     </html>

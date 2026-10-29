@@ -3,6 +3,7 @@ import { DynamicTheme } from "@/components/dynamic-theme";
 import { RegisterForm } from "@/components/register-form";
 import { SignInWithIdp } from "@/components/sign-in-with-idp";
 import { Translated } from "@/components/translated";
+import { idpButtons } from "@/lib/idp";
 import { getServiceConfig } from "@/lib/service-url";
 import {
   getActiveIdentityProviders,
@@ -117,7 +118,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         {loginSettings?.allowExternalIdp && !!identityProviders.length && (
           <div className="mt-5">
             <SignInWithIdp
-              identityProviders={identityProviders}
+              identityProviders={idpButtons(identityProviders)}
               requestId={requestId}
               organization={organization}
               layout="icons"

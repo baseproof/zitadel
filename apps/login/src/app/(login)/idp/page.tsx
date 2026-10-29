@@ -2,6 +2,7 @@ import { DynamicTheme } from "@/components/dynamic-theme";
 import { SignInWithIdp } from "@/components/sign-in-with-idp";
 import { Translated } from "@/components/translated";
 import { getServiceConfig } from "@/lib/service-url";
+import { idpButtons } from "@/lib/idp";
 import { getActiveIdentityProviders, getBrandingSettings } from "@/lib/zitadel";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -41,7 +42,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
       <div className="w-full">
         {!!identityProviders?.length && (
           <SignInWithIdp
-            identityProviders={identityProviders}
+            identityProviders={idpButtons(identityProviders)}
             requestId={requestId}
             organization={organization}
             postErrorRedirectUrl="/idp"

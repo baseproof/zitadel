@@ -1,8 +1,7 @@
 "use client";
 
-import { idpTypeToSlug } from "@/lib/idp";
+import type { IdpButton, IdpSlug } from "@/lib/idp";
 import { redirectToIdp } from "@/lib/server/idp";
-import { IdentityProvider, IdentityProviderType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { useTranslations } from "next-intl";
 import { ReactNode, useActionState } from "react";
 import { Alert } from "./alert";
@@ -19,9 +18,29 @@ import { SignInWithGoogle } from "./idps/sign-in-with-google";
 import { SignInWithZitadel } from "./idps/sign-in-with-zitadel";
 import { Translated } from "./translated";
 
+// Each slug's button. A Record, so a slug lib/idp.ts adds without a button
+// fails the type check here.
+const BUTTONS: Record<IdpSlug, (props: SignInWithIdentityProviderProps) => ReactNode> = {
+  apple: SignInWithApple,
+  oauth: SignInWithGeneric,
+  oidc: SignInWithGeneric,
+  github: SignInWithGithub,
+  github_es: SignInWithGithub,
+  azure: SignInWithAzureAd,
+  google: (props) => <SignInWithGoogle {...props} e2e="google" />,
+  gitlab: SignInWithGitlab,
+  gitlab_es: SignInWithGitlab,
+  saml: SignInWithGeneric,
+  ldap: SignInWithGeneric,
+  jwt: SignInWithGeneric,
+  zitadel: SignInWithZitadel,
+};
+
 export interface SignInWithIDPProps {
   children?: ReactNode;
-  identityProviders: IdentityProvider[];
+  // From lib/idp's idpButtons, on the server: the slug, not the protobuf
+  // type, so this component ships no protobuf schema.
+  identityProviders: IdpButton[];
   requestId?: string;
   organization?: string;
   sessionId?: string;
@@ -51,26 +70,9 @@ export function SignInWithIdp({
   const t = useTranslations("idp");
   const iconOnly = layout === "icons";
 
-  const renderIDPButton = (idp: IdentityProvider, index: number) => {
-    const { id, name, type } = idp;
-
-    const components: Partial<Record<IdentityProviderType, (props: SignInWithIdentityProviderProps) => ReactNode>> = {
-      [IdentityProviderType.APPLE]: SignInWithApple,
-      [IdentityProviderType.OAUTH]: SignInWithGeneric,
-      [IdentityProviderType.OIDC]: SignInWithGeneric,
-      [IdentityProviderType.GITHUB]: SignInWithGithub,
-      [IdentityProviderType.GITHUB_ES]: SignInWithGithub,
-      [IdentityProviderType.AZURE_AD]: SignInWithAzureAd,
-      [IdentityProviderType.GOOGLE]: (props) => <SignInWithGoogle {...props} e2e="google" />,
-      [IdentityProviderType.GITLAB]: SignInWithGitlab,
-      [IdentityProviderType.GITLAB_SELF_HOSTED]: SignInWithGitlab,
-      [IdentityProviderType.SAML]: SignInWithGeneric,
-      [IdentityProviderType.LDAP]: SignInWithGeneric,
-      [IdentityProviderType.JWT]: SignInWithGeneric,
-      [IdentityProviderType.ZITADEL]: SignInWithZitadel,
-    };
-
-    const Component = components[type];
+  const renderIDPButton = (idp: IdpButton, index: number) => {
+    const { id, name, slug } = idp;
+    const Component = BUTTONS[slug];
     const tileLabel = t(context === "signUp" ? "signUpWithName" : "signInWithName", { name });
     // Generic providers (OAuth, OIDC, SAML, LDAP, JWT) carry no logo: the tile or row shows a mark by name.
     const genericTile =
@@ -83,7 +85,7 @@ export function SignInWithIdp({
     return Component ? (
       <form action={action} className="flex" key={`idp-${index}`}>
         <input type="hidden" name="id" value={id} />
-        <input type="hidden" name="provider" value={idpTypeToSlug(type)} />
+        <input type="hidden" name="provider" value={slug} />
         <input type="hidden" name="requestId" value={requestId} />
         <input type="hidden" name="organization" value={organization} />
         {sessionId && <input type="hidden" name="sessionId" value={sessionId} />}
