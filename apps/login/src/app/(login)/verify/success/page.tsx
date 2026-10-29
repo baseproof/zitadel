@@ -1,11 +1,11 @@
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { VerifySuccessContinue } from "@/components/verify-success-continue";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
 import { getBrandingSettings, getUserByID } from "@/lib/zitadel";
-import { HumanUser, User } from "@zitadel/proto/zitadel/user/v2/user_pb";
+import { User } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import { headers } from "next/headers";
 
 export default async function Page(props: { searchParams: Promise<any> }) {
@@ -28,15 +28,7 @@ export default async function Page(props: { searchParams: Promise<any> }) {
 
   const userResponse = await getUserByID({ serviceConfig, userId: id });
 
-  let user: User | undefined;
-  let human: HumanUser | undefined;
-
-  if (userResponse) {
-    user = userResponse.user;
-    if (user?.type.case === "human") {
-      human = user.type.value as HumanUser;
-    }
-  }
+  const user: User | undefined = userResponse?.user;
 
   // Build continue URL to re-enter the login flow with requestId preserved
   let continueUrl: string | undefined;
@@ -52,30 +44,22 @@ export default async function Page(props: { searchParams: Promise<any> }) {
     continueUrl = `/loginname?${params}`;
   }
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName ?? user?.preferredLoginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
         <h1>
           <Translated i18nKey="successTitle" namespace="verify" />
         </h1>
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="successDescription" namespace="verify" />
         </p>
-
-        {sessionFactors ? (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : (
-          user && (
-            <UserAvatar loginName={user.preferredLoginName} displayName={human?.profile?.displayName} showDropdown={false} />
-          )
-        )}
       </div>
-      <div className="w-full">{continueUrl && <VerifySuccessContinue continueUrl={continueUrl} />}</div>
+      <div className="flex w-full flex-col gap-5">
+        {email && <EmailChip loginName={email} />}
+        {continueUrl && <VerifySuccessContinue continueUrl={continueUrl} />}
+      </div>
     </DynamicTheme>
   );
 }

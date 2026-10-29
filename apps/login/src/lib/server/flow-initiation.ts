@@ -1,6 +1,7 @@
 import { getValidLocaleFromUILocales } from "@/lib/auth-utils";
 import { isExternalUrl, isSafeRedirectUri } from "@/lib/client-utils";
 import { getLanguageCookie, setLanguageCookie, type Cookie } from "@/lib/cookies";
+import { isClassifiedError } from "@/lib/grpc/interceptors/error-classification";
 
 import { shouldUILocalesOverrideCookie } from "@/lib/i18n";
 import { idpTypeToSlug } from "@/lib/idp";
@@ -19,7 +20,7 @@ import {
   ServiceConfig,
   startIdentityProviderFlow,
 } from "@/lib/zitadel";
-import { create } from "@zitadel/client";
+import { Code, create } from "@zitadel/client";
 import { Prompt } from "@zitadel/proto/zitadel/oidc/v2/authorization_pb";
 import { CreateCallbackRequestSchema, SessionSchema } from "@zitadel/proto/zitadel/oidc/v2/oidc_service_pb";
 import { CreateResponseRequestSchema } from "@zitadel/proto/zitadel/saml/v2/saml_service_pb";
@@ -35,6 +36,21 @@ const logger = createLogger("flow-initiation");
 const ORG_SCOPE_REGEX = /urn:zitadel:iam:org:id:([0-9]+)/;
 const ORG_DOMAIN_SCOPE_REGEX = /urn:zitadel:iam:org:domain:primary:(.+)/;
 const IDP_SCOPE_REGEX = /urn:zitadel:iam:org:idp:id:(.+)/;
+
+// 01·F (baseproof/legal-agents#120): Zitadel deletes an auth or SAML request
+// once it succeeds or fails, so a sign-in link opened again afterwards, or one
+// this instance never issued, answers NotFound. The page says the link has
+// expired instead of the route answering with an internal error.
+function notFoundAsUndefined(error: unknown): undefined {
+  if (isClassifiedError(error) && error.code === Code.NotFound) {
+    return undefined;
+  }
+  throw error;
+}
+
+function linkExpired(request: NextRequest): NextResponse {
+  return NextResponse.redirect(constructUrl(request, "/link-expired"));
+}
 
 function setCSPHeaders(
   response: NextResponse,
@@ -247,7 +263,13 @@ export interface FlowInitiationParams {
 export async function handleOIDCFlowInitiation(params: FlowInitiationParams): Promise<NextResponse> {
   const { serviceConfig, requestId, sessions, sessionCookies, request } = params;
 
-  const { authRequest } = await getAuthRequest({ serviceConfig, authRequestId: requestId.replace("oidc_", "") });
+  const found = await getAuthRequest({ serviceConfig, authRequestId: requestId.replace("oidc_", "") }).catch(
+    notFoundAsUndefined,
+  );
+  if (!found) {
+    return linkExpired(request);
+  }
+  const { authRequest } = found;
 
   const locale = getValidLocaleFromUILocales(authRequest?.uiLocales);
   if (locale) {
@@ -602,7 +624,13 @@ export async function handleOIDCFlowInitiation(params: FlowInitiationParams): Pr
 export async function handleSAMLFlowInitiation(params: FlowInitiationParams): Promise<NextResponse> {
   const { serviceConfig, requestId, sessions, sessionCookies, request } = params;
 
-  const { samlRequest } = await getSAMLRequest({ serviceConfig, samlRequestId: requestId.replace("saml_", "") });
+  const found = await getSAMLRequest({ serviceConfig, samlRequestId: requestId.replace("saml_", "") }).catch(
+    notFoundAsUndefined,
+  );
+  if (!found) {
+    return linkExpired(request);
+  }
+  const { samlRequest } = found;
 
   if (!samlRequest) {
     return NextResponse.json({ error: "No samlRequest found" }, { status: 400 });

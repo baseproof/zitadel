@@ -20,7 +20,7 @@ export default async function Page(props: { searchParams: Promise<any> }) {
         <h1>
           <Translated i18nKey="success.title" namespace="logout" />
         </h1>
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="success.description" namespace="logout" />
         </p>
       </div>

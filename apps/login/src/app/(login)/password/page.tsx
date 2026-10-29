@@ -2,7 +2,6 @@ import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { PasswordForm } from "@/components/password-form";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
 import { getBrandingSettings, getDefaultOrg, getLoginSettings } from "@/lib/zitadel";
@@ -50,26 +49,19 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     organization: organization ?? sessionFactors?.factors?.user?.organizationId ?? defaultOrganization,
   });
 
+  // The email shows as the form's first field, with "Change" (02a), rather
+  // than as an avatar with an account menu.
+  const shownLoginName = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col">
         <h1>
           <Translated i18nKey="verify.title" namespace="password" />
         </h1>
         <p className="ztdl-p">
           <Translated i18nKey="verify.description" namespace="password" />
         </p>
-
-        {sessionFactors ? (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : loginName ? (
-          <UserAvatar loginName={loginName} displayName={loginName} showDropdown searchParams={searchParams}></UserAvatar>
-        ) : null}
       </div>
 
       <div className="w-full">
@@ -85,13 +77,15 @@ export default async function Page(props: { searchParams: Promise<Record<string 
           </div>
         )}
 
-        {loginName && (
+        {loginName && shownLoginName && (
           <PasswordForm
-            loginName={loginName}
+            loginName={shownLoginName}
             requestId={requestId}
             organization={organization} // stick to "organization" as we still want to do user discovery based on the searchParams not the default organization, later the organization is determined by the found user
             defaultOrganization={defaultOrganization}
             loginSettings={loginSettings}
+            notice={searchParams.notice === "noPasskey" ? "noPasskey" : undefined}
+            resetRequired={searchParams.reset === "required"}
           />
         )}
       </div>

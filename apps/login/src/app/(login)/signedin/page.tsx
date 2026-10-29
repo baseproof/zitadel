@@ -1,8 +1,8 @@
 import { Alert, AlertType } from "@/components/alert";
-import { Button, ButtonVariants } from "@/components/button";
+import { ButtonColors, ButtonSizes, ButtonVariants, getButtonClasses } from "@/components/button";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { resolveRedirectUri } from "@/lib/client";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession, loadSessionById } from "@/lib/session";
@@ -43,25 +43,22 @@ export default async function Page(props: { searchParams: Promise<any> }) {
 
   const isSamePage = redirectUri?.startsWith("/signedin") ?? false;
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
         <h1>
           <Translated i18nKey="title" namespace="signedin" data={{ user: sessionFactors?.factors?.user?.displayName }} />
         </h1>
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="description" namespace="signedin" />
         </p>
-
-        <UserAvatar
-          loginName={loginName ?? sessionFactors?.factors?.user?.loginName}
-          displayName={sessionFactors?.factors?.user?.displayName ?? loginName}
-          showDropdown={!(requestId && requestId.startsWith("device_"))}
-          searchParams={searchParams}
-        />
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
+        {email && <EmailChip loginName={email} />}
+
         {requestId && requestId.startsWith("device_") && (
           <Alert type={AlertType.INFO}>
             You can now close this window and return to the device where you started the authorization process to continue.
@@ -69,15 +66,13 @@ export default async function Page(props: { searchParams: Promise<any> }) {
         )}
 
         {redirectUri && !isSamePage && (
-          <div className="mt-8 flex w-full flex-row items-center">
-            <span className="flex-grow"></span>
-
-            <Link href={redirectUri}>
-              <Button type="submit" className="self-end" variant={ButtonVariants.Primary}>
-                <Translated i18nKey="continue" namespace="signedin" />
-              </Button>
-            </Link>
-          </div>
+          <Link
+            href={redirectUri}
+            className={`${getButtonClasses(ButtonSizes.Small, ButtonVariants.Primary, ButtonColors.Primary)} w-full`}
+            data-testid="continue-button"
+          >
+            <Translated i18nKey="continue" namespace="signedin" />
+          </Link>
         )}
       </div>
     </DynamicTheme>

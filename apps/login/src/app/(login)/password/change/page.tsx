@@ -1,8 +1,8 @@
 import { Alert } from "@/components/alert";
 import { ChangePasswordForm } from "@/components/change-password-form";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
 import { getBrandingSettings, getPasswordComplexitySettings } from "@/lib/zitadel";
@@ -39,40 +39,31 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     organization: sessionFactors?.factors?.user?.organizationId,
   });
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
         <h1>
           <Translated i18nKey="change.title" namespace="password" />
         </h1>
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="change.description" namespace="password" />
         </p>
+      </div>
 
+      <div className="flex w-full flex-col gap-5">
         {/* Only warn when there is no loginName to continue with; a failed session
             lookup is reported by the form gate below (failedLoading), and under
             enumeration protection no session may exist by design. */}
         {!loginName && (
-          <div className="py-4">
-            <Alert>
-              <Translated i18nKey="unknownContext" namespace="error" />
-            </Alert>
-          </div>
+          <Alert>
+            <Translated i18nKey="unknownContext" namespace="error" />
+          </Alert>
         )}
 
-        {sessionFactors ? (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : loginName ? (
-          <UserAvatar loginName={loginName} displayName={loginName} showDropdown searchParams={searchParams}></UserAvatar>
-        ) : null}
-      </div>
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
 
-      <div className="w-full">
         {passwordComplexity && loginName && sessionFactors?.factors?.user?.id ? (
           <ChangePasswordForm
             sessionId={sessionFactors.id}
@@ -82,11 +73,9 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             passwordComplexitySettings={passwordComplexity}
           />
         ) : (
-          <div className="py-4">
-            <Alert>
-              <Translated i18nKey="failedLoading" namespace="error" />
-            </Alert>
-          </div>
+          <Alert>
+            <Translated i18nKey="failedLoading" namespace="error" />
+          </Alert>
         )}
       </div>
     </DynamicTheme>

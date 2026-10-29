@@ -1,3 +1,4 @@
+import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { Translated } from "@/components/translated";
 import { getServiceConfig } from "@/lib/service-url";
@@ -23,13 +24,14 @@ export default async function LinkingFailedPage(props: {
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
         <h1>
-          <Translated i18nKey="title" namespace="idp" />
+          <Translated i18nKey="linkingError.title" namespace="idp" />
         </h1>
-        <p className="ztdl-p text-center">
-          <Translated i18nKey="errors.linkingFailed" namespace="idp" />
+        <p className="ztdl-p">
+          <Translated i18nKey="linkingError.description" namespace="idp" />
         </p>
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
+
+      <div className="flex w-full flex-col gap-5">{error && <Alert>{error}</Alert>}</div>
     </DynamicTheme>
   );
 }

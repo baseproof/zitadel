@@ -1,8 +1,7 @@
-import { Alert, AlertType } from "@/components/alert";
+import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { SetPasswordForm } from "@/components/set-password-form";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { UNKNOWN_USER_ID } from "@/lib/constants";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -102,10 +101,21 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col space-y-4">
-        <h1>{session?.factors?.user?.displayName ?? <Translated i18nKey="set.title" namespace="password" />}</h1>
-        <p className="ztdl-p mb-6 block">
-          <Translated i18nKey="set.description" namespace="password" />
+      {/* initial: a first password for a new account (02d); otherwise a reset with the emailed code. */}
+      <div className="flex flex-col">
+        <h1>
+          <Translated i18nKey={initial === "true" ? "set.title" : "set.resetTitle"} namespace="password" />
+        </h1>
+        <p className="ztdl-p">
+          {initial === "true" ? (
+            <Translated i18nKey="set.description" namespace="password" />
+          ) : (
+            <Translated
+              i18nKey="set.resetDescription"
+              namespace="password"
+              data={{ loginName: loginName ?? user?.preferredLoginName ?? "" }}
+            />
+          )}
         </p>
 
         {/* Only warn when there is neither a loginName nor a userId to continue with.
@@ -118,26 +128,9 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             </Alert>
           </div>
         )}
-
-        {session ? (
-          <UserAvatar
-            loginName={loginName ?? session.factors?.user?.loginName}
-            displayName={session.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : loginName ? (
-          <UserAvatar loginName={loginName} displayName={loginName} showDropdown searchParams={searchParams}></UserAvatar>
-        ) : null}
       </div>
 
       <div className="w-full">
-        {!initial && (
-          <Alert type={AlertType.INFO}>
-            <Translated i18nKey="set.codeSent" namespace="password" />
-          </Alert>
-        )}
-
         {passwordComplexity &&
         (loginName ?? user?.preferredLoginName) &&
         (userId ?? session?.factors?.user?.id ?? (loginSettings?.ignoreUnknownUsernames ? UNKNOWN_USER_ID : undefined)) ? (

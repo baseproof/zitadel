@@ -9,12 +9,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FieldValues, useForm } from "react-hook-form";
 import { Alert, AlertType } from "./alert";
-import { AuthenticationMethod, AuthenticationMethodRadio, methods } from "./authentication-method-radio";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
+import { ConsentCheckbox } from "./consent-checkbox";
 import { TextInput } from "./input";
-import { PrivacyPolicyCheckboxes } from "./privacy-policy-checkboxes";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
 
@@ -23,6 +21,8 @@ type Inputs =
       firstname: string;
       lastname: string;
       email: string;
+      // The Terms of Service (and Privacy Policy) box (02b).
+      consent: boolean;
     }
   | FieldValues;
 
@@ -47,23 +47,44 @@ export function RegisterForm({
   loginSettings,
   idpCount = 0,
 }: Props) {
-  const { register, handleSubmit, formState } = useForm<Inputs>({
-    mode: "onChange",
+  // Buttons stay enabled; the checks run when the user submits.
+  const {
+    register,
+    handleSubmit,
+    getValues,
+    resetField,
+    setFocus,
+    formState: { errors },
+  } = useForm<Inputs>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       email: email ?? "",
       firstname: firstname ?? "",
       lastname: lastname ?? "",
+      consent: false,
     },
   });
 
   const t = useTranslations("register");
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [selected, setSelected] = useState<AuthenticationMethod>(methods[0]);
   const [error, setError] = useState<string>("");
   const [samlData, setSamlData] = useState<{ url: string; fields: Record<string, string> } | null>(null);
 
   const router = useRouter();
+
+  const toLoginName = (loginName?: string) => {
+    const params = new URLSearchParams();
+    if (loginName) {
+      params.append("loginName", loginName);
+      params.append("submit", "true");
+    }
+    if (requestId) {
+      params.append("requestId", requestId);
+    }
+    return "/loginname?" + params;
+  };
 
   async function submitAndRegister(values: Inputs) {
     setLoading(true);
@@ -105,105 +126,130 @@ export function RegisterForm({
     }
   }
 
-  const { errors } = formState;
-
-  const [tosAndPolicyAccepted, setTosAndPolicyAccepted] = useState(false);
-
-  // Check if legal acceptance is required
-  const isLegalAcceptanceRequired = !!(legal?.tosLink || legal?.privacyPolicyLink);
-  const canSubmit = formState.isValid && (!isLegalAcceptanceRequired || tosAndPolicyAccepted);
+  // The legal settings name the links to agree to; with none, there is nothing to accept.
+  const consentRequired = !!(legal?.tosLink || legal?.privacyPolicyLink);
+  const alreadyExists = error === t("errors.userAlreadyExists");
 
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
-        <div className="mb-4 grid grid-cols-2 gap-4">
-          <div className="">
-            <TextInput
-              type="firstname"
-              autoComplete="firstname"
-              autoFocus
-              required
-              {...register("firstname", { required: t("required.firstname") })}
-              label={t("labels.firstname")}
-              error={errors.firstname?.message as string}
-              data-testid="firstname-text-input"
-            />
-          </div>
-          <div className="">
-            <TextInput
-              type="lastname"
-              autoComplete="lastname"
-              required
-              {...register("lastname", { required: t("required.lastname") })}
-              label={t("labels.lastname")}
-              error={errors.lastname?.message as string}
-              data-testid="lastname-text-input"
-            />
-          </div>
-          <div className="col-span-2">
-            <TextInput
-              type="email"
-              autoComplete="email"
-              required
-              {...register("email", { required: t("required.email") })}
-              label={t("labels.email")}
-              error={errors.email?.message as string}
-              data-testid="email-text-input"
-            />
-          </div>
+      {/* Sent here by 01 with an email no account uses (02b). */}
+      {email && !alreadyExists && (
+        <div
+          className="text-primary-light-500 dark:text-primary-dark-500 mb-6 rounded-[8px] bg-[var(--bp-info-bg)] px-[14px] py-[10px] text-[14px] leading-[1.45]"
+          data-testid="new-email-callout"
+        >
+          {t("newEmailCallout", { email })}
         </div>
-        {(legal?.tosLink || legal?.privacyPolicyLink) && (
-          <PrivacyPolicyCheckboxes legal={legal} onChange={setTosAndPolicyAccepted} />
-        )}
-        {/* show chooser if both methods are allowed */}
-        {loginSettings && loginSettings.allowLocalAuthentication && loginSettings.passkeysType == PasskeysType.ALLOWED && (
-          <>
-            <p className="ztdl-p mt-4 mb-6 block text-left">
-              <Translated i18nKey="selectMethod" namespace="register" />
-            </p>
-
-            <div className="pb-4">
-              <AuthenticationMethodRadio selected={selected} selectionChanged={setSelected} />
-            </div>
-          </>
+      )}
+      {alreadyExists && (
+        <div className="mb-6" data-testid="error">
+          <Alert title={error}>{t("errors.userAlreadyExistsHint")}</Alert>
+        </div>
+      )}
+      {error && !alreadyExists && (
+        <div className="mb-6" data-testid="error">
+          <Alert title={error} />
+        </div>
+      )}
+      <form
+        method="post"
+        className="flex w-full flex-col"
+        noValidate
+        onSubmit={handleSubmit((values) => {
+          // Passwordless first (02c) when passkeys are allowed; "Use password instead" is offered there.
+          const withPassword =
+            loginSettings?.passkeysType !== PasskeysType.ALLOWED && !!loginSettings?.allowLocalAuthentication;
+          return submitAndContinue(values, withPassword);
+        })}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <TextInput
+            type="text"
+            autoComplete="given-name"
+            autoFocus
+            {...register("firstname", { required: t("required.firstname") })}
+            label={t("labels.firstname")}
+            error={errors.firstname?.message as string}
+            data-testid="firstname-text-input"
+          />
+          <TextInput
+            type="text"
+            autoComplete="family-name"
+            {...register("lastname", { required: t("required.lastname") })}
+            label={t("labels.lastname")}
+            error={errors.lastname?.message as string}
+            data-testid="lastname-text-input"
+          />
+        </div>
+        <div className="mt-4">
+          <TextInput
+            type="email"
+            autoComplete="email"
+            {...register("email", { required: t("required.email") })}
+            label={t("labels.email")}
+            error={errors.email?.message as string}
+            data-testid="email-text-input"
+          />
+        </div>
+        {consentRequired && (
+          <div className="mt-[18px]">
+            <ConsentCheckbox
+              legal={legal}
+              {...register("consent", {
+                validate: (accepted) => !!accepted || t("consent.required"),
+              })}
+              error={errors.consent?.message as string}
+            />
+          </div>
         )}
         {!loginSettings?.allowLocalAuthentication &&
           loginSettings?.passkeysType !== PasskeysType.ALLOWED &&
           (!loginSettings?.allowExternalIdp || !idpCount) && (
-            <div className="py-4">
+            <div className="mt-4">
               <Alert type={AlertType.INFO}>
                 <Translated i18nKey="noMethodAvailableWarning" namespace="register" />
               </Alert>
             </div>
           )}
 
-        {error && (
-          <div className="py-4">
-            <Alert>{error}</Alert>
+        {alreadyExists ? (
+          <div className="mt-6 flex flex-col gap-2">
+            <Button
+              type="button"
+              className="w-full"
+              variant={ButtonVariants.Primary}
+              onClick={() => router.push(toLoginName(getValues("email")))}
+              data-testid="login-instead-button"
+            >
+              <Translated i18nKey="logInInstead" namespace="register" />
+            </Button>
+            <Button
+              type="button"
+              className="w-full"
+              variant={ButtonVariants.Secondary}
+              onClick={() => {
+                setError("");
+                resetField("email", { defaultValue: "" });
+                setFocus("email");
+              }}
+              data-testid="different-email-button"
+            >
+              <Translated i18nKey="useDifferentEmail" namespace="register" />
+            </Button>
           </div>
-        )}
-
-        <div className="mt-8 flex w-full flex-row items-center justify-between">
-          <BackButton data-testid="back-button" />
+        ) : (
           <Button
             type="submit"
+            className="mt-6 w-full"
             variant={ButtonVariants.Primary}
-            disabled={loading || !canSubmit}
-            onClick={handleSubmit((values) => {
-              const usePasswordToContinue: boolean =
-                loginSettings?.allowLocalAuthentication && loginSettings?.passkeysType == PasskeysType.ALLOWED
-                  ? !(selected === methods[0]) // choose selection if both available
-                  : !!loginSettings?.allowLocalAuthentication; // if password is chosen
-              // set password as default if only password is allowed
-              return submitAndContinue(values, usePasswordToContinue);
-            })}
+            disabled={loading}
             data-testid="submit-button"
           >
             {loading && <Spinner className="mr-2 h-5 w-5" />}
             <Translated i18nKey="submit" namespace="register" />
           </Button>
-        </div>
+        )}
       </form>
     </>
   );

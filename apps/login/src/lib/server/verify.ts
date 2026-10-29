@@ -13,7 +13,7 @@ import {
   sendEmailCode as zitadelSendEmailCode,
 } from "@/lib/zitadel";
 
-import { create } from "@zitadel/client";
+import { Code, ConnectError, create } from "@zitadel/client";
 import { Session } from "@zitadel/proto/zitadel/session/v2/session_pb";
 import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
 import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
@@ -82,6 +82,11 @@ export async function sendVerification(command: VerifyUserByEmailCommand) {
       })
     : await verifyEmail({ serviceConfig, userId: command.userId, verificationCode: command.code }).catch((error) => {
         logger.warn("Could not verify email:", { error });
+        // Zitadel answers a wrong and an expired code alike (Errors.User.Code.Invalid,
+        // internal/command/user_v2_email.go), so one message under the code says both (03·B).
+        if (error instanceof ConnectError && error.code === Code.InvalidArgument) {
+          return { error: t("errors.codeRejected"), field: "code" as const };
+        }
         return { error: t("errors.couldNotVerifyEmail") };
       });
 

@@ -9,11 +9,12 @@ import { PasswordComplexitySettings } from "@zitadel/proto/zitadel/settings/v2/p
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FieldValues, useForm } from "react-hook-form";
-import { Alert, AlertType } from "./alert";
+import { Controller, FieldValues, useForm } from "react-hook-form";
+import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
+import { CodeInput } from "./code-input";
+import { CHANGE_LINK_CLASSES, ValueChip } from "./email-chip";
 import { TextInput } from "./input";
 import { PasswordComplexity } from "./password-complexity";
 import { Spinner } from "./spinner";
@@ -48,14 +49,31 @@ export function SetPasswordForm({
   code,
   codeRequired,
 }: Props) {
-  const { register, handleSubmit, watch, formState } = useForm<Inputs>({
-    mode: "onChange",
+  // Buttons stay enabled; the checks run when the user submits.
+  const {
+    register,
+    handleSubmit,
+    watch,
+    control,
+    formState,
+    trigger,
+    setError: setFieldError,
+    resetField,
+  } = useForm<Inputs>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       code: code ?? "",
     },
   });
 
   const t = useTranslations("password");
+
+  // A reset asks for its code first (baseproof/legal-agents#120); the new
+  // password's fields show once a code is entered. Zitadel checks the code
+  // only together with the new password (SetPassword), so a code it refuses
+  // brings this step back with 03·B's message.
+  const [step, setStep] = useState<"code" | "password">(codeRequired ? "code" : "password");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -109,6 +127,13 @@ export function SetPasswordForm({
 
     if (changeResponse && "error" in changeResponse) {
       setLoading(false);
+      if ("field" in changeResponse && changeResponse.field === "code") {
+        resetField("password");
+        resetField("confirmPassword");
+        setStep("code");
+        setFieldError("code", { type: "server", message: changeResponse.error });
+        return;
+      }
       setError(changeResponse.error);
       return;
     }
@@ -149,127 +174,211 @@ export function SetPasswordForm({
     return;
   }
 
-  const { errors } = formState;
+  const { errors, isSubmitted } = formState;
 
   const watchPassword = watch("password", "");
   const watchConfirmPassword = watch("confirmPassword", "");
 
-  const hasMinLength = passwordComplexitySettings && watchPassword?.length >= passwordComplexitySettings.minLength;
-  const hasSymbol = symbolValidator(watchPassword);
-  const hasNumber = numberValidator(watchPassword);
-  const hasUppercase = upperCaseValidator(watchPassword);
-  const hasLowercase = lowerCaseValidator(watchPassword);
+  // The first rule the password still misses, said as what to do (02d·A).
+  const passwordRule = (value: string) => {
+    if (!passwordComplexitySettings) {
+      return true;
+    }
+    if (value.length < passwordComplexitySettings.minLength) {
+      return t("set.errors.addLength", { minLength: passwordComplexitySettings.minLength.toString() });
+    }
+    if (passwordComplexitySettings.requiresNumber && !numberValidator(value)) {
+      return t("set.errors.addNumber");
+    }
+    if (passwordComplexitySettings.requiresUppercase && !upperCaseValidator(value)) {
+      return t("set.errors.addUppercase");
+    }
+    if (passwordComplexitySettings.requiresLowercase && !lowerCaseValidator(value)) {
+      return t("set.errors.addLowercase");
+    }
+    if (passwordComplexitySettings.requiresSymbol && !symbolValidator(value)) {
+      return t("set.errors.addSymbol");
+    }
+    return true;
+  };
 
-  const policyIsValid =
-    passwordComplexitySettings &&
-    (passwordComplexitySettings.requiresLowercase ? hasLowercase : true) &&
-    (passwordComplexitySettings.requiresNumber ? hasNumber : true) &&
-    (passwordComplexitySettings.requiresUppercase ? hasUppercase : true) &&
-    (passwordComplexitySettings.requiresSymbol ? hasSymbol : true) &&
-    hasMinLength;
+  // 02d's "Go passwordless instead": back to the passkey offer for this new account.
+  const passkeyParams = new URLSearchParams({ loginName });
+  if (organization) {
+    passkeyParams.append("organization", organization);
+  }
+  if (requestId) {
+    passkeyParams.append("requestId", requestId);
+  }
+
+  const errorBanner = error && (
+    <div className="mb-6">
+      <Alert title={error} />
+    </div>
+  );
+
+  if (step === "code") {
+    return (
+      <>
+        {errorBanner}
+        <form
+          method="post"
+          className="flex w-full flex-col"
+          noValidate
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (await trigger("code")) {
+              setError("");
+              setStep("password");
+            }
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <Controller
+              control={control}
+              name="code"
+              rules={{
+                required: t("set.required.code"),
+                validate: (value: string) => value.length === 6 || t("set.errors.codeIncomplete"),
+              }}
+              render={({ field }) => (
+                <CodeInput
+                  ref={field.ref}
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  label={t("set.labels.code")}
+                  hint={t("set.codeHint")}
+                  error={errors.code?.message as string}
+                  autoFocus
+                />
+              )}
+            />
+            <div className="flex flex-row items-center gap-1.5 text-[14px]">
+              <span className="text-[var(--bp-subtle)]">
+                <Translated i18nKey="set.noCodeReceived" namespace="password" />
+              </span>
+              <button
+                disabled={loading}
+                type="button"
+                className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
+                onClick={() => {
+                  resendCode();
+                }}
+                data-testid="resend-button"
+              >
+                <Translated i18nKey="set.resend" namespace="password" />
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="mt-7 w-full"
+            variant={ButtonVariants.Primary}
+            disabled={loading}
+            data-testid="code-continue-button"
+          >
+            <Translated i18nKey="set.next" namespace="password" />
+          </Button>
+        </form>
+      </>
+    );
+  }
 
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
-        <div className="mb-4 grid grid-cols-1 gap-4 pt-4">
-          <input
-            type="text"
-            name="username"
-            autoComplete="username"
-            value={loginName}
-            readOnly
-            tabIndex={-1}
-            aria-hidden="true"
-            className="sr-only"
-          />
+      {errorBanner}
+      <form method="post" className="flex w-full flex-col" noValidate onSubmit={handleSubmit(submitPassword)}>
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={loginName}
+          readOnly
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+        />
+        <div className="flex flex-col gap-5">
           {codeRequired && (
-            <Alert type={AlertType.INFO}>
-              <div className="flex flex-row">
-                <span className="mr-auto flex-1 text-left">
-                  <Translated i18nKey="set.noCodeReceived" namespace="password" />
+            <ValueChip
+              label={<Translated i18nKey="set.labels.code" namespace="password" />}
+              value={
+                <span className="font-mono tracking-[0.15em]" data-testid="code-value">
+                  {watch("code")}
                 </span>
+              }
+              action={
                 <button
-                  aria-label={t("set.resend")}
-                  disabled={loading}
                   type="button"
-                  className="text-primary-light-500 hover:text-primary-light-400 dark:text-primary-dark-500 hover:dark:text-primary-dark-400 ml-4 cursor-pointer disabled:cursor-default disabled:text-gray-400 dark:disabled:text-gray-700"
-                  onClick={() => {
-                    resendCode();
-                  }}
-                  data-testid="resend-button"
+                  className={CHANGE_LINK_CLASSES}
+                  onClick={() => setStep("code")}
+                  data-testid="change-code-button"
                 >
-                  <Translated i18nKey="set.resend" namespace="password" />
+                  <Translated i18nKey="change" namespace="common" />
                 </button>
-              </div>
-            </Alert>
-          )}
-          {codeRequired && (
-            <div>
-              <TextInput
-                type="text"
-                autoFocus
-                required
-                {...register("code", {
-                  required: t("set.required.code"),
-                })}
-                label={t("set.labels.code")}
-                autoComplete="one-time-code"
-                error={errors.code?.message as string}
-                data-testid="code-text-input"
-              />
-            </div>
-          )}
-          <div>
-            <TextInput
-              type="password"
-              autoComplete="new-password"
-              autoFocus={!codeRequired}
-              required
-              {...register("password", {
-                required: t("set.required.newPassword"),
-              })}
-              label={t("set.labels.newPassword")}
-              error={errors.password?.message as string}
-              data-testid="password-set-text-input"
+              }
             />
-          </div>
-          <div>
-            <TextInput
-              type="password"
-              required
-              autoComplete="new-password"
-              {...register("confirmPassword", {
-                required: t("set.required.confirmPassword"),
-              })}
-              label={t("set.labels.confirmPassword")}
-              error={errors.confirmPassword?.message as string}
-              data-testid="password-set-confirm-text-input"
-            />
-          </div>
+          )}
+          <TextInput
+            type="password"
+            autoComplete="new-password"
+            autoFocus
+            {...register("password", {
+              required: t("set.required.newPassword"),
+              validate: passwordRule,
+            })}
+            label={t("set.labels.newPassword")}
+            error={errors.password?.message as string}
+            data-testid="password-set-text-input"
+          />
+          <TextInput
+            type="password"
+            autoComplete="new-password"
+            {...register("confirmPassword", {
+              required: t("set.required.confirmPassword"),
+              validate: (value: string) => value === watch("password") || t("set.errors.mismatch"),
+            })}
+            label={t("set.labels.confirmPassword")}
+            error={errors.confirmPassword?.message as string}
+            data-testid="password-set-confirm-text-input"
+          />
         </div>
 
         {passwordComplexitySettings && (
-          <PasswordComplexity
-            passwordComplexitySettings={passwordComplexitySettings}
-            password={watchPassword}
-            equals={!!watchPassword && watchPassword === watchConfirmPassword}
-          />
+          <div className="mt-5">
+            <PasswordComplexity
+              passwordComplexitySettings={passwordComplexitySettings}
+              password={watchPassword}
+              equals={!!watchPassword && watchPassword === watchConfirmPassword}
+              showErrors={isSubmitted}
+            />
+          </div>
         )}
 
-        {error && <Alert>{error}</Alert>}
-
-        <div className="mt-8 flex w-full flex-row items-center justify-between">
-          <BackButton data-testid="back-button" />
+        <div className="mt-7 flex flex-col gap-2">
           <Button
             type="submit"
+            className="w-full"
             variant={ButtonVariants.Primary}
-            disabled={loading || !policyIsValid || !formState.isValid || watchPassword !== watchConfirmPassword}
-            onClick={handleSubmit(submitPassword)}
+            disabled={loading}
             data-testid="submit-button"
           >
             {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="set.submit" namespace="password" />
           </Button>
+          {!codeRequired && (
+            <Button
+              type="button"
+              className="w-full"
+              variant={ButtonVariants.Secondary}
+              onClick={() => router.push("/passkey/set?" + passkeyParams)}
+              data-testid="go-passwordless-button"
+            >
+              <Translated i18nKey="set.goPasswordless" namespace="password" />
+            </Button>
+          )}
         </div>
       </form>
     </>

@@ -1,7 +1,7 @@
 import { ConsentScreen } from "@/components/consent";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { checkDeviceCodeCheckCookie } from "@/lib/device-code-check";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession, loadSessionById } from "@/lib/session";
@@ -85,15 +85,11 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             data={{ appName: deviceAuthorizationRequest?.appName }}
           />
         </p>
-
-        <UserAvatar
-          loginName={sessionFactors.factors?.user?.loginName}
-          displayName={sessionFactors.factors?.user?.displayName}
-          showDropdown={false}
-        />
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
+        {sessionFactors.factors?.user?.loginName && <EmailChip loginName={sessionFactors.factors.user.loginName} />}
+
         <ConsentScreen
           userCode={userCode}
           sessionId={sessionFactors.id}

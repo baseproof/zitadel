@@ -1,0 +1,118 @@
+name: login-image
+# Baseproof's login image: apps/login of this fork of Zitadel's v4.20.0
+# release, the sign-in at id.baseproof.ai (baseproof/legal-agents#120). The
+# run on a push to main is the one verification: the image job lints, tests,
+# builds and smokes the image, then pushes the bytes it smoked as
+# :sha-<commit>; promote names them as the release once every job passed
+# (.github/scripts/release.sh). A pull request's run is the same verification
+# and publishes nothing. Upstream's own workflows are not part of this fork.
+on:
+  push:
+    branches: [main]
+  pull_request:
+# A newer push to a pull request cancels that PR's older run. Every push run is
+# its own group, so a publish is never cancelled and never queued behind another.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('{0}-pr-{1}', github.workflow, github.event.pull_request.number) || format('{0}-run-{1}', github.workflow, github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  release-script:
+    # release.sh against a fake registry: no network, no credentials.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash .github/scripts/test_release.sh
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # The base path is baked into the build (next.config.mjs reads it and
+      # has no default); set for the whole job so every build Nx runs, the
+      # one test-unit depends on included, is the same build.
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      # nx.json names upstream's Nx Cloud workspace: never read or write it.
+      NX_NO_CLOUD: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: pnpm, the version package.json's packageManager names
+        run: corepack enable
+      # Only the login and the workspace packages it builds from
+      # (@zitadel/client, @zitadel/proto), plus the root's tooling (nx).
+      - run: pnpm install --frozen-lockfile --filter . --filter "@zitadel/login..."
+      - run: pnpm nx run @zitadel/login:lint
+      - run: pnpm nx run @zitadel/login:test-unit
+      - run: pnpm nx run @zitadel/login:build
+      - name: Build the image (linux/amd64, the commit stamped)
+        run: docker build --platform linux/amd64 --build-arg SERVICE_REVISION=${{ github.sha }} -t zitadel-login:ci apps/login
+      # The login answers /ready only when the Zitadel API's /debug/ready does
+      # and a session-cookie secret is set (src/app/ready/route.ts): a
+      # stand-in API on the runner answers that one path.
+      - name: Smoke the image (starts, ready, carries its commit and version)
+        run: |
+          mkdir -p /tmp/api/debug && echo ok > /tmp/api/debug/ready
+          (cd /tmp/api && python3 -m http.server 18080 >/dev/null 2>&1 &)
+          docker run -d --name login-ci --network host \
+            -e ZITADEL_API_URL=http://127.0.0.1:18080 \
+            -e ZITADEL_SERVICE_USER_TOKEN=ci \
+            -e ZITADEL_SESSION_COOKIE_SECRET="$(openssl rand -hex 32)" \
+            zitadel-login:ci
+          for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:3000/ui/v2/login/ready && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/ui/v2/login/healthy
+          curl -fsS http://127.0.0.1:3000/ui/v2/login/ready
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' zitadel-login:ci | grep -qx "SERVICE_REVISION=${{ github.sha }}"
+          test "$(docker run --rm --entrypoint cat zitadel-login:ci /app/VERSION | tr -d '[:space:]')" = "$(tr -d '[:space:]' < apps/login/VERSION)"
+          docker rm -f login-ci
+      # The pusher's credentials, after the build and the smoke: the auth
+      # action writes its key file into the workspace.
+      - uses: google-github-actions/auth@v2
+        if: github.event_name == 'push'
+        with:
+          credentials_json: ${{ secrets.ARTIFACT_REGISTRY_PUSH_KEY }}
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ${{ vars.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_PUSH_KEY }}
+      - name: Push the smoked image as :sha-<commit>
+        if: github.event_name == 'push'
+        env:
+          IMAGE_BASE: ${{ vars.IMAGE_BASE }}
+        run: .github/scripts/release.sh push-verified zitadel-login:ci "${IMAGE_BASE%/}/zitadel-login"
+
+  promote:
+    # This commit's verified image as the release, on main and only when every
+    # job passed. :sha-<commit> gets :<version> when this push changed
+    # apps/login/VERSION (never re-pointed: a version another digest holds
+    # fails here, so bump the file) and :latest while the commit is still
+    # main's tip. Publishing deploys nothing: baseproof/charts pins the image
+    # by digest (make pin, REF=<version> or REF=sha-<commit>).
+    if: github.event_name == 'push'
+    needs: [release-script, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.ARTIFACT_REGISTRY_PUSH_KEY }}
+      # Tags are written through the registry's Docker API, a manifest copy
+      # under the tag (release.sh tag_digest), with the pusher's login.
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ARTIFACT_REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.ARTIFACT_REGISTRY_PUSH_KEY }}
+      - name: Promote this commit's verified image
+        env:
+          BEFORE: ${{ github.event.before }}
+          IMAGE_BASE: ${{ vars.IMAGE_BASE }}
+        run: .github/scripts/release.sh promote "$BEFORE" "${IMAGE_BASE%/}/zitadel-login=apps/login/VERSION"

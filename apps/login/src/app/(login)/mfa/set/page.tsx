@@ -1,9 +1,8 @@
 import { Alert } from "@/components/alert";
-import { BackButton } from "@/components/back-button";
 import { ChooseSecondFactorToSetup } from "@/components/choose-second-factor-to-setup";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getServiceConfig } from "@/lib/service-url";
 import { hasVerifiedPrimaryFactor, loadMostRecentSession } from "@/lib/session";
@@ -93,6 +92,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   const { valid } = sessionWithData ? hasVerifiedPrimaryFactor(sessionWithData) : { valid: false };
 
+  const email = sessionWithData ? (loginName ?? sessionWithData.factors?.user?.loginName) : undefined;
+
   if (force === "true" && valid && sessionWithData?.factors?.user?.loginName && loginSettings) {
     const emailVerified = sessionWithData.emailVerified ?? false;
     const phoneVerified = sessionWithData.phoneVerified ?? false;
@@ -138,52 +139,38 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         <p className="ztdl-p">
           <Translated i18nKey="set.description" namespace="mfa" />
         </p>
-
-        {sessionWithData && (
-          <UserAvatar
-            loginName={loginName ?? sessionWithData.factors?.user?.loginName}
-            displayName={sessionWithData.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
       </div>
 
-      <div className="w-full">
-        <div className="flex flex-col space-y-4">
-          {!(loginName || sessionId) && (
-            <Alert>
-              <Translated i18nKey="unknownContext" namespace="error" />
-            </Alert>
-          )}
+      <div className="flex w-full flex-col gap-5">
+        {!(loginName || sessionId) && (
+          <Alert>
+            <Translated i18nKey="unknownContext" namespace="error" />
+          </Alert>
+        )}
 
-          {!valid && (
-            <Alert>
-              <Translated i18nKey="sessionExpired" namespace="error" />
-            </Alert>
-          )}
+        {!valid && (
+          <Alert>
+            <Translated i18nKey="sessionExpired" namespace="error" />
+          </Alert>
+        )}
 
-          {valid && loginSettings && sessionWithData && sessionWithData.factors?.user?.id && (
-            <ChooseSecondFactorToSetup
-              userId={sessionWithData.factors?.user?.id}
-              loginName={loginName}
-              sessionId={sessionWithData.id}
-              requestId={requestId}
-              organization={organization}
-              loginSettings={loginSettings}
-              userMethods={sessionWithData.authMethods ?? []}
-              phoneVerified={sessionWithData.phoneVerified ?? false}
-              emailVerified={sessionWithData.emailVerified ?? false}
-              checkAfter={checkAfter === "true"}
-              force={force === "true"}
-            ></ChooseSecondFactorToSetup>
-          )}
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
 
-          <div className="mt-8 flex w-full flex-row items-center">
-            <BackButton />
-            <span className="flex-grow"></span>
-          </div>
-        </div>
+        {valid && loginSettings && sessionWithData && sessionWithData.factors?.user?.id && (
+          <ChooseSecondFactorToSetup
+            userId={sessionWithData.factors?.user?.id}
+            loginName={loginName}
+            sessionId={sessionWithData.id}
+            requestId={requestId}
+            organization={organization}
+            loginSettings={loginSettings}
+            userMethods={sessionWithData.authMethods ?? []}
+            phoneVerified={sessionWithData.phoneVerified ?? false}
+            emailVerified={sessionWithData.emailVerified ?? false}
+            checkAfter={checkAfter === "true"}
+            force={force === "true"}
+          ></ChooseSecondFactorToSetup>
+        )}
       </div>
     </DynamicTheme>
   );

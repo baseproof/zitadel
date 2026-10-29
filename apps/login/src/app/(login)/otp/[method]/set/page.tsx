@@ -1,10 +1,9 @@
 import { Alert } from "@/components/alert";
-import { BackButton } from "@/components/back-button";
-import { Button, ButtonVariants } from "@/components/button";
+import { ButtonColors, ButtonSizes, ButtonVariants, getButtonClasses } from "@/components/button";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { TotpRegister } from "@/components/totp-register";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getEnrollmentAuthorizationError } from "@/lib/server/enrollment-guard";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -115,6 +114,8 @@ export default async function Page(props: {
     urlToContinue = `/signedin?` + paramsToContinue;
   }
 
+  const email = session ? (loginName ?? session.factors?.user?.loginName) : undefined;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -135,57 +136,39 @@ export default async function Page(props: {
                 : ""}
           </p>
         )}
-
-        {!session && (
-          <div className="py-4">
-            <Alert>
-              {/* context was provided but the session could not be resolved (cookie missing, invalid or expired) */}
-              <Translated i18nKey={loginName || sessionId ? "sessionExpired" : "unknownContext"} namespace="error" />
-            </Alert>
-          </div>
-        )}
-
-        {error && (
-          <div className="py-4">
-            <Alert>{error?.message}</Alert>
-          </div>
-        )}
-
-        {session && (
-          <UserAvatar
-            loginName={loginName ?? session.factors?.user?.loginName}
-            displayName={session.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
       </div>
 
-      <div className="w-full">
-        {totpResponse && "uri" in totpResponse && "secret" in totpResponse ? (
-          <div>
-            <TotpRegister
-              uri={totpResponse.uri as string}
-              secret={totpResponse.secret as string}
-              loginName={loginName}
-              sessionId={sessionId}
-              requestId={requestId}
-              organization={organization}
-              checkAfter={checkAfter === "true"}
-              loginSettings={loginSettings}
-            ></TotpRegister>
-          </div>
-        ) : (
-          <div className="mt-8 flex w-full flex-row items-center">
-            <BackButton />
-            <span className="flex-grow"></span>
+      <div className="flex w-full flex-col gap-5">
+        {!session && (
+          <Alert>
+            {/* context was provided but the session could not be resolved (cookie missing, invalid or expired) */}
+            <Translated i18nKey={loginName || sessionId ? "sessionExpired" : "unknownContext"} namespace="error" />
+          </Alert>
+        )}
 
-            <Link href={urlToContinue}>
-              <Button type="submit" className="self-end" variant={ButtonVariants.Primary}>
-                <Translated i18nKey="set.submit" namespace="otp" />
-              </Button>
-            </Link>
-          </div>
+        {error && <Alert>{error?.message}</Alert>}
+
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
+
+        {totpResponse && "uri" in totpResponse && "secret" in totpResponse ? (
+          <TotpRegister
+            uri={totpResponse.uri as string}
+            secret={totpResponse.secret as string}
+            loginName={loginName}
+            sessionId={sessionId}
+            requestId={requestId}
+            organization={organization}
+            checkAfter={checkAfter === "true"}
+            loginSettings={loginSettings}
+          ></TotpRegister>
+        ) : (
+          <Link
+            href={urlToContinue}
+            className={`${getButtonClasses(ButtonSizes.Small, ButtonVariants.Primary, ButtonColors.Primary)} w-full`}
+            data-testid="continue-button"
+          >
+            <Translated i18nKey="set.submit" namespace="otp" />
+          </Link>
         )}
       </div>
     </DynamicTheme>

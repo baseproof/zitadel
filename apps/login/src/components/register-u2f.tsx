@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
@@ -177,20 +176,17 @@ export function RegisterU2f({ loginName, sessionId, organization, requestId, che
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
+      <form method="post" className="w-full">
         {error && (
           <div className="py-4">
             <Alert>{error}</Alert>
           </div>
         )}
 
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton data-testid="back-button" />
-
-          <span className="flex-grow"></span>
+        <div className="mt-7 w-full">
           <Button
             type="submit"
-            className="self-end"
+            className="w-full"
             variant={ButtonVariants.Primary}
             disabled={loading}
             onClick={submitRegisterAndContinue}

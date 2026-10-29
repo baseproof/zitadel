@@ -64,12 +64,14 @@ export async function createSessionAndUpdateCookie(command: {
     } as Duration; // for usecases where the lifetime is not specified (user discovery)
   }
 
+  // A failed password check here carries Zitadel's count of failed attempts,
+  // as it does when an existing session is updated (setSessionAndUpdateCookie).
   const createdSession = await createSessionFromChecksAndChallenges({
     serviceConfig,
     checks: command.checks,
     lifetime: sessionLifetime,
     challenges: sanitizeChallenges(command.challenges),
-  });
+  }).catch(passwordAttemptsHandler);
 
   if (createdSession) {
     return getSession({

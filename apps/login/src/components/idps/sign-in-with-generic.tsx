@@ -5,10 +5,10 @@ import { BaseButton, SignInWithIdentityProviderProps } from "./base-button";
 
 export const SignInWithGeneric = forwardRef<HTMLButtonElement, SignInWithIdentityProviderProps>(
   function SignInWithGeneric(props, ref) {
-    const { children, name = "", className = "h-[50px]", ...restProps } = props;
+    const { children, name = "", ...restProps } = props;
     return (
-      <BaseButton {...restProps} ref={ref} className={className}>
-        {children ? children : <span className="w-full text-center">{name}</span>}
+      <BaseButton {...restProps} ref={ref}>
+        {children ? children : <span>{name}</span>}
       </BaseButton>
     );
   },

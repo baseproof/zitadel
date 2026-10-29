@@ -1,10 +1,10 @@
 import { Alert } from "@/components/alert";
-import { BackButton } from "@/components/back-button";
 import { ChooseAuthenticatorToSetup } from "@/components/choose-authenticator-to-setup";
+import { Divider } from "@/components/divider";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { SignInWithIdp } from "@/components/sign-in-with-idp";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -18,6 +18,7 @@ import {
   listAuthenticationMethodTypes,
 } from "@/lib/zitadel";
 import { Session } from "@zitadel/proto/zitadel/session/v2/session_pb";
+import { PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 // import { getLocale } from "next-intl/server";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -145,6 +146,14 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     params.set("requestId", requestId);
   }
 
+  // An account with no way to sign in yet (it left 02c before choosing one)
+  // gets the same offer as a new account: passwordless first, a password
+  // through "Use password instead" (baseproof/legal-agents#120).
+  if (loginSettings?.passkeysType === PasskeysType.ALLOWED && loginSettings?.allowLocalAuthentication) {
+    params.delete("initial");
+    redirect(`/passkey/set?` + params);
+  }
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -155,16 +164,20 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         <p className="ztdl-p">
           <Translated i18nKey="description" namespace="authenticator" />
         </p>
-
-        <UserAvatar
-          loginName={sessionWithData.factors?.user?.loginName}
-          displayName={sessionWithData.factors?.user?.displayName}
-          showDropdown
-          searchParams={searchParams}
-        ></UserAvatar>
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
+        {sessionWithData.factors.user.loginName && (
+          <EmailChip
+            loginName={sessionWithData.factors.user.loginName}
+            changeHref={loginNameHref({
+              loginName: sessionWithData.factors.user.loginName,
+              organization: sessionWithData.factors.user.organizationId,
+              requestId,
+            })}
+          />
+        )}
+
         {loginSettings && (
           <ChooseAuthenticatorToSetup
             authMethods={sessionWithData.authMethods}
@@ -175,11 +188,9 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
         {loginSettings?.allowExternalIdp && !!identityProviders.length && (
           <>
-            <div className="flex flex-col py-3">
-              <p className="ztdl-p text-center">
-                <Translated i18nKey="linkWithIDP" namespace="authenticator" />
-              </p>
-            </div>
+            <Divider>
+              <Translated i18nKey="linkWithIDP" namespace="authenticator" />
+            </Divider>
 
             <SignInWithIdp
               showLabel={false}
@@ -191,11 +202,6 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             ></SignInWithIdp>
           </>
         )}
-
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton />
-          <span className="flex-grow"></span>
-        </div>
       </div>
     </DynamicTheme>
   );

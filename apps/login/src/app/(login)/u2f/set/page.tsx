@@ -1,8 +1,8 @@
 import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { RegisterU2f } from "@/components/register-u2f";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getEnrollmentAuthorizationError } from "@/lib/server/enrollment-guard";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -47,36 +47,29 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     enrollmentAuthorized = !enrollmentError;
   }
 
+  const email = sessionFactors ? (loginName ?? sessionFactors.factors?.user?.loginName) : undefined;
+
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col items-center space-y-4">
+      <div className="flex flex-col space-y-4">
         <h1>
           <Translated i18nKey="set.title" namespace="u2f" />
         </h1>
 
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="set.description" namespace="u2f" />
         </p>
-
-        {sessionFactors && (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
         {(!sessionFactors || !enrollmentAuthorized) && (
-          <div className="py-4">
-            <Alert>
-              {/* a loginName was provided but the session could not be resolved (cookie missing, invalid or expired) */}
-              <Translated i18nKey={!sessionFactors && loginName ? "sessionExpired" : "unknownContext"} namespace="error" />
-            </Alert>
-          </div>
+          <Alert>
+            {/* a loginName was provided but the session could not be resolved (cookie missing, invalid or expired) */}
+            <Translated i18nKey={!sessionFactors && loginName ? "sessionExpired" : "unknownContext"} namespace="error" />
+          </Alert>
         )}
+
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
 
         {sessionFactors?.id && enrollmentAuthorized && (
           <RegisterU2f

@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
@@ -185,18 +184,22 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
       });
   }
 
+  // 02a·D: the browser's prompt was cancelled or timed out.
+  const cancelled = error === t("verify.errors.verificationCancelled");
+
   return (
     <div className="w-full">
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
       {error && (
-        <div className="py-4">
-          <Alert>{error}</Alert>
+        <div className="mb-6">
+          <Alert title={error}>{cancelled ? t("verify.errors.verificationCancelledHint") : undefined}</Alert>
         </div>
       )}
-      <div className="mt-8 flex w-full flex-row items-center">
+      <div className="flex w-full flex-col-reverse gap-2">
         {altPassword ? (
           <Button
             type="button"
+            className="w-full"
             variant={ButtonVariants.Secondary}
             onClick={() => {
               const params = new URLSearchParams();
@@ -226,13 +229,20 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
             <Translated i18nKey="verify.usePassword" namespace="passkey" />
           </Button>
         ) : (
-          <BackButton />
+          <Button
+            type="button"
+            className="w-full"
+            variant={ButtonVariants.Secondary}
+            onClick={() => router.push("/loginname?" + new URLSearchParams(requestId ? { requestId } : {}))}
+            data-testid="different-email-button"
+          >
+            <Translated i18nKey="verify.useDifferentEmail" namespace="passkey" />
+          </Button>
         )}
 
-        <span className="flex-grow"></span>
         <Button
           type="submit"
-          className="self-end"
+          className="w-full"
           variant={ButtonVariants.Primary}
           disabled={loading}
           onClick={async () => {
@@ -260,7 +270,8 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
           }}
           data-testid="submit-button"
         >
-          {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="verify.submit" namespace="passkey" />
+          {loading && <Spinner className="mr-2 h-5 w-5" />}{" "}
+          <Translated i18nKey={error ? "verify.tryAgain" : "verify.submit"} namespace="passkey" />
         </Button>
       </div>
     </div>

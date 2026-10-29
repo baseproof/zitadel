@@ -79,6 +79,9 @@ export async function registerUser(
     return { error: t("errors.localAuthenticationNotAllowed") };
   }
 
+  // The username is the email (addHumanUser), so Zitadel refuses a second
+  // account for an email that already has one (baseproof/legal-agents#120, 02b·B).
+  let alreadyExists = false;
   const addResponse = await addHumanUser({
     serviceConfig,
     email: command.email,
@@ -88,11 +91,12 @@ export async function registerUser(
     organization: command.organization,
   }).catch((error) => {
     logger.error("Failed to create user", { error });
+    alreadyExists = error instanceof ConnectError && error.code === Code.AlreadyExists;
     return null;
   });
 
   if (!addResponse) {
-    return { error: t("errors.couldNotCreateUser") };
+    return { error: t(alreadyExists ? "errors.userAlreadyExists" : "errors.couldNotCreateUser") };
   }
 
   let checkPayload: any = {
@@ -123,6 +127,31 @@ export async function registerUser(
     return { error: t("errors.couldNotCreateSession") };
   }
 
+  const userResponse = await getUserByID({ serviceConfig, userId: session.factors.user.id }).catch((error) => {
+    logger.error("Failed to get user after session creation", { error });
+    return null;
+  });
+
+  if (!userResponse?.user) {
+    return { error: t("errors.userNotFound") };
+  }
+
+  const humanUser = userResponse.user.type.case === "human" ? userResponse.user.type.value : undefined;
+
+  // The email's code comes first (baseproof/legal-agents#120): no way to sign
+  // in is offered before it passes. /verify then sets the verification cookie
+  // that lets 02c and 02d add the first one (lib/server/verify.ts).
+  const emailVerificationCheck = await checkEmailVerification(
+    session,
+    humanUser,
+    session.factors.user.organizationId,
+    command.requestId,
+  );
+
+  if (emailVerificationCheck?.redirect) {
+    return emailVerificationCheck;
+  }
+
   if (!command.password) {
     const params = new URLSearchParams({
       loginName: session.factors.user.loginName,
@@ -133,34 +162,12 @@ export async function registerUser(
       params.append("requestId", command.requestId);
     }
 
-    // Set verification cookie for users registering with passkey (no password)
-    // This allows them to proceed with passkey registration without additional verification
+    // Without email verification (EMAIL_VERIFICATION unset) this browser's
+    // sign-up is the check that lets the account add its passkey.
     await setUserVerificationCheckCookie(session.factors.user.id);
 
     return { redirect: "/passkey/set?" + params };
   } else {
-    const userResponse = await getUserByID({ serviceConfig, userId: session?.factors?.user?.id }).catch((error) => {
-      logger.error("Failed to get user after session creation", { error });
-      return null;
-    });
-
-    if (!userResponse?.user) {
-      return { error: t("errors.userNotFound") };
-    }
-
-    const humanUser = userResponse.user.type.case === "human" ? userResponse.user.type.value : undefined;
-
-    const emailVerificationCheck = await checkEmailVerification(
-      session,
-      humanUser,
-      session.factors.user.organizationId,
-      command.requestId,
-    );
-
-    if (emailVerificationCheck?.redirect) {
-      return emailVerificationCheck;
-    }
-
     return completeFlowOrGetUrl(
       command.requestId && session.id
         ? {

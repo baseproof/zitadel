@@ -1,4 +1,3 @@
-import { APPEARANCE_STYLES, getComponentRoundness, getThemeConfig } from "@/lib/theme";
 import { ThemeableProps } from "@/lib/themeUtils";
 import { clsx } from "clsx";
 import { ButtonHTMLAttributes, DetailedHTMLProps, forwardRef } from "react";
@@ -26,44 +25,34 @@ export type ButtonProps = DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonEleme
   color?: ButtonColors;
 } & ThemeableProps;
 
+// Baseproof's buttons (baseproof/legal-agents#120): 44px, 8px corners; the
+// primary is branding's primary color, the secondary a neutral surface.
 export const getButtonClasses = (
   size: ButtonSizes,
   variant: ButtonVariants,
   color: ButtonColors,
-  roundnessClasses: string = "rounded-md", // Default fallback
-  appearance: string = "", // Theme appearance (shadows, borders, etc.)
+  roundnessClasses: string = "rounded-[8px]",
+  appearance: string = "",
 ) =>
   clsx(
     {
-      "box-border leading-36px text-14px inline-flex items-center focus:outline-none transition-colors transition-shadow duration-300": true,
-      "disabled:border-none disabled:bg-gray-300 disabled:text-gray-600 disabled:shadow-none disabled:cursor-not-allowed disabled:dark:bg-gray-700 disabled:dark:text-gray-900":
+      "box-border h-[44px] text-[15px] inline-flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-light-500 dark:focus-visible:ring-primary-dark-500 transition-colors duration-200": true,
+      "font-semibold disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed disabled:dark:bg-gray-700 disabled:dark:text-gray-900":
         variant === ButtonVariants.Primary,
-      "bg-primary-light-500 dark:bg-primary-dark-500 hover:bg-primary-light-400 hover:dark:bg-primary-dark-400 text-primary-light-contrast-500 dark:text-primary-dark-contrast-500":
+      "bg-primary-light-500 dark:bg-primary-dark-500 hover:bg-primary-light-600 hover:dark:bg-primary-dark-400 text-primary-light-contrast-500 dark:text-primary-dark-contrast-500":
         variant === ButtonVariants.Primary && color !== ButtonColors.Warn,
-      "bg-warn-light-500 dark:bg-warn-dark-500 hover:bg-warn-light-400 hover:dark:bg-warn-dark-400 text-white dark:text-white":
+      "bg-warn-light-500 dark:bg-warn-dark-500 hover:bg-warn-light-600 hover:dark:bg-warn-dark-400 text-white dark:text-white":
         variant === ButtonVariants.Primary && color === ButtonColors.Warn,
-      "border border-button-light-border dark:border-button-dark-border text-gray-950 hover:bg-gray-500/20 hover:dark:bg-white/10 focus:bg-gray-500/20 focus:dark:bg-white/10 dark:text-white disabled:text-gray-600 disabled:hover:bg-transparent disabled:dark:hover:bg-transparent disabled:cursor-not-allowed disabled:dark:text-gray-900":
-        variant === ButtonVariants.Secondary,
-      "border border-button-light-border dark:border-button-dark-border text-warn-light-500 dark:text-warn-dark-500 hover:bg-warn-light-500/10 dark:hover:bg-warn-light-500/10 focus:bg-warn-light-500/20 dark:focus:bg-warn-light-500/20":
+      "font-medium bg-[var(--bp-surface)] hover:bg-[var(--bp-surface-hover)] text-text-light-500 dark:text-text-dark-500 disabled:opacity-60 disabled:cursor-not-allowed":
+        variant === ButtonVariants.Secondary && color !== ButtonColors.Warn,
+      "font-medium bg-[var(--bp-surface)] hover:bg-[var(--bp-surface-hover)] text-warn-light-500 dark:text-warn-dark-500":
         color === ButtonColors.Warn && variant !== ButtonVariants.Primary,
-      "px-16 py-2": size === ButtonSizes.Large,
-      "px-4 h-[36px]": size === ButtonSizes.Small,
+      "px-6": size === ButtonSizes.Large,
+      "px-4": size === ButtonSizes.Small,
     },
-    roundnessClasses, // Apply the full roundness classes directly
-    appearance, // Apply appearance-specific styling (shadows, borders, etc.)
+    roundnessClasses,
+    appearance,
   );
-
-// Helper function to get default button roundness from theme
-function getDefaultButtonRoundness(): string {
-  return getComponentRoundness("button");
-}
-
-// Helper function to get default button appearance from centralized theme system
-function getDefaultButtonAppearance(): string {
-  const themeConfig = getThemeConfig();
-  const appearance = APPEARANCE_STYLES[themeConfig.appearance];
-  return appearance?.button || "border border-button-light-border dark:border-button-dark-border"; // Fallback to flat design
-}
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
@@ -78,15 +67,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) => {
-    // Use theme-based values if not explicitly provided
-    const actualRoundness = roundness || getDefaultButtonRoundness();
-    const actualAppearance = getDefaultButtonAppearance();
-
     return (
       <button
         type="button"
         ref={ref}
-        className={`${getButtonClasses(size, variant, color, actualRoundness, actualAppearance)} ${className}`}
+        className={`${getButtonClasses(size, variant, color, roundness)} ${className}`}
         {...props}
       >
         {children}

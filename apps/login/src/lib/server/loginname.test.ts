@@ -842,7 +842,9 @@ describe("sendLoginname", () => {
       expect(result).toEqual({ redirect: "https://example-idp.example.com/auth" });
     });
 
-    test("should return error when allowRegister: false, allowLocalAuthentication: true, discovered org but no active IDP", async () => {
+    // The organization that holds the domain signs people up by invitation
+    // only: say so rather than "not found" (baseproof/legal-agents#120).
+    test("should say sign-up is by invitation when allowRegister: false, allowLocalAuthentication: true, discovered org but no active IDP", async () => {
       mockGetLoginSettings
         .mockResolvedValueOnce({
           allowRegister: false,
@@ -866,7 +868,25 @@ describe("sendLoginname", () => {
         loginName: "user@noidp.com",
       });
 
-      expect(result).toEqual({ error: "errors.userNotFound" });
+      expect(result).toEqual({ error: "errors.registerByInvitation" });
+    });
+
+    test("should open sign-up in the default organization for an email no organization holds", async () => {
+      mockGetLoginSettings.mockResolvedValue({
+        allowRegister: true,
+        allowLocalAuthentication: true,
+      });
+
+      mockGetOrgsByDomain.mockResolvedValue({ result: [] });
+
+      const result = await sendLoginname({
+        loginName: "new.person@nowhere.example",
+        defaultOrganization: "default-org",
+      });
+
+      expect(result).toEqual({
+        redirect: "/register?organization=default-org&email=new.person%40nowhere.example",
+      });
     });
 
     test("should discover organization from domain suffix when user not found without org context", async () => {

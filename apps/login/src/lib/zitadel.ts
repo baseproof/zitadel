@@ -39,6 +39,7 @@ import { applyCustomHeaders } from "@/lib/custom-headers";
 import { errorClassificationInterceptor, isClassifiedError } from "@/lib/grpc/interceptors/error-classification";
 import { otelGrpcInterceptor } from "@/lib/grpc/interceptors/otel";
 import { Code, Interceptor } from "@connectrpc/connect";
+import { ErrorDetailSchema } from "@zitadel/proto/zitadel/message_pb";
 import { PromiseCache } from "./cache";
 import { createServiceForHost } from "./service";
 
@@ -98,9 +99,13 @@ export async function getHostedLoginTranslation({
   serviceConfig,
   organization,
   locale,
+  ignoreInheritance = false,
 }: WithServiceConfig<{
   organization?: string;
   locale?: string;
+  // Only this level's own texts, without what it inherits (the instance's,
+  // and Zitadel's built-in defaults).
+  ignoreInheritance?: boolean;
 }>) {
   const fetcher = async () => {
     const settingsService: Client<typeof SettingsService> = await createServiceForHost(SettingsService, serviceConfig);
@@ -118,6 +123,7 @@ export async function getHostedLoginTranslation({
                 value: true,
               },
           locale: locale,
+          ignoreInheritance,
         },
         {},
       )
@@ -127,7 +133,10 @@ export async function getHostedLoginTranslation({
   };
 
   return freshCache(
-    instanceCacheKey(serviceConfig, `getHostedLoginTranslation-${organization || "instance"}-${locale || "default"}`),
+    instanceCacheKey(
+      serviceConfig,
+      `getHostedLoginTranslation-${organization || "instance"}-${locale || "default"}-${ignoreInheritance ? "own" : "inherited"}`,
+    ),
     fetcher,
     getTTLForKey("getHostedLoginTranslation", longCacheTTL),
   );
@@ -1187,6 +1196,15 @@ export async function passwordReset({
   );
 }
 
+// A password code Zitadel didn't take, by the ids it attaches as ErrorDetail:
+// wrong (CODE-woT0xc) or expired (CODE-QvUQ4P) in internal/crypto/code.go, none
+// requested or already used (COMMAND-2M9fs) in internal/command/user_human.go.
+const REJECTED_CODE_IDS = new Set(["CODE-woT0xc", "CODE-QvUQ4P", "COMMAND-2M9fs"]);
+
+export function isRejectedCode(error: unknown): boolean {
+  return isClassifiedError(error) && error.findDetails(ErrorDetailSchema).some((detail) => REJECTED_CODE_IDS.has(detail.id));
+}
+
 export async function setUserPassword({
   serviceConfig,
   userId,
@@ -1217,6 +1235,10 @@ export async function setUserPassword({
   const userService: Client<typeof UserService> = await createServiceForHost(UserService, serviceConfig);
 
   return userService.setPassword(payload, {}).catch((error) => {
+    // a code Zitadel refused goes to the caller, which asks for it again
+    if (isRejectedCode(error)) {
+      throw error;
+    }
     // throw error if failed precondition (ex. User is not yet initialized)
     if (isClassifiedError(error) && error.code === Code.FailedPrecondition && error.message) {
       return { error: error.message };

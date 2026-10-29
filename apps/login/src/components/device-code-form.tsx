@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
 import { TextInput } from "./input";
 import { Spinner } from "./spinner";
@@ -60,7 +59,7 @@ export function DeviceCodeForm({ userCode }: { userCode?: string }) {
 
   return (
     <>
-      <form className="w-full">
+      <form method="post" className="w-full">
         <div className="mt-4">
           <TextInput
             type="text"
@@ -78,12 +77,10 @@ export function DeviceCodeForm({ userCode }: { userCode?: string }) {
           </div>
         )}
 
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton />
-          <span className="flex-grow"></span>
+        <div className="mt-7 w-full">
           <Button
             type="submit"
-            className="self-end"
+            className="w-full"
             variant={ButtonVariants.Primary}
             disabled={loading || !formState.isValid}
             onClick={handleSubmit(submitCodeAndContinue)}

@@ -5,6 +5,7 @@ import { UsernameForm } from "@/components/username-form";
 import { getServiceConfig } from "@/lib/service-url";
 import { getActiveIdentityProviders, getBrandingSettings, getDefaultOrg, getLoginSettings } from "@/lib/zitadel";
 import { Organization } from "@zitadel/proto/zitadel/org/v2/org_pb";
+import { PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
@@ -50,9 +51,32 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   const branding = await getBrandingSettings({ serviceConfig, organization: organization ?? defaultOrganization });
 
+  const t = await getTranslations("loginname");
+  // A provider's sign-in that came back without finishing (01·D): the failure
+  // page sends people here with the provider's name.
+  const banner = searchParams?.idpFailed
+    ? {
+        title: t("errors.providerFailed", { provider: searchParams.idpFailed }),
+        description: t("errors.providerFailedHint"),
+      }
+    : undefined;
+
+  const providerTiles =
+    loginSettings?.allowExternalIdp && !!identityProviders?.length ? (
+      <SignInWithIdp
+        identityProviders={identityProviders}
+        requestId={requestId}
+        organization={organization}
+        postErrorRedirectUrl="/loginname"
+        loginHint={idpLoginHint}
+        showLabel={false}
+        layout="icons"
+      ></SignInWithIdp>
+    ) : undefined;
+
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col">
         <h1>
           <Translated i18nKey="title" namespace="loginname" />
         </h1>
@@ -62,7 +86,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
       </div>
 
       <div className="w-full">
-        {loginSettings?.allowLocalAuthentication && (
+        {loginSettings?.allowLocalAuthentication ? (
           <UsernameForm
             loginName={loginName}
             requestId={requestId}
@@ -73,20 +97,13 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             hideSuffix={branding?.hideLoginNameSuffix}
             submit={submit}
             allowRegister={!!loginSettings?.allowRegister}
-          ></UsernameForm>
-        )}
-
-        {loginSettings?.allowExternalIdp && !!identityProviders?.length && (
-          <div className="w-full pt-6 pb-4">
-            <SignInWithIdp
-              identityProviders={identityProviders}
-              requestId={requestId}
-              organization={organization}
-              postErrorRedirectUrl="/loginname"
-              loginHint={idpLoginHint}
-              showLabel={loginSettings?.allowLocalAuthentication}
-            ></SignInWithIdp>
-          </div>
+            allowPasskeys={loginSettings?.passkeysType === PasskeysType.ALLOWED}
+            banner={banner}
+          >
+            {providerTiles}
+          </UsernameForm>
+        ) : (
+          providerTiles
         )}
       </div>
     </DynamicTheme>

@@ -5,7 +5,6 @@ import { LanguageProvider } from "@/components/language-provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Skeleton } from "@/components/skeleton";
 import { ThemeProvider } from "@/components/theme-provider";
-import ThemeSwitch from "@/components/theme-switch";
 import { LANGS, getLanguage } from "@/lib/i18n";
 import { getServiceConfig } from "@/lib/service-url";
 import { getAllowedLanguages } from "@/lib/zitadel";
@@ -21,9 +20,22 @@ const lato = Lato({
   subsets: ["latin"],
 });
 
+// Baseproof's favicons (cdn.baseproof.ai/web/favicons), served from public/
+// under the login's base path.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
-  return { title: t("title") };
+  return {
+    title: t("title"),
+    icons: {
+      icon: [
+        { url: `${basePath}/favicon.svg`, type: "image/svg+xml" },
+        { url: `${basePath}/favicon.ico`, sizes: "any" },
+      ],
+      apple: `${basePath}/apple-touch-icon.png`,
+    },
+  };
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -57,9 +69,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <Skeleton>
                       <div className="h-40"></div>
                     </Skeleton>
-                    <div className="flex flex-row items-center justify-end space-x-4 py-4">
-                      <ThemeSwitch />
-                    </div>
                   </div>
                 </BackgroundWrapper>
               }
@@ -70,9 +79,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 >
                   <div className="relative mx-auto w-full max-w-[1100px] py-8">
                     <div>{children}</div>
-                    <div className="mx-auto flex max-w-[440px] flex-row items-center justify-end space-x-4 px-4 py-4 md:max-w-full md:px-8">
+                    {/* The theme follows the system (branding's theme mode), so there is no switch. */}
+                    <div className="mx-auto flex max-w-[440px] flex-row items-center justify-end px-4 py-4 sm:px-0">
                       <LanguageSwitcher languages={languages} />
-                      <ThemeSwitch />
                     </div>
                   </div>
                 </BackgroundWrapper>

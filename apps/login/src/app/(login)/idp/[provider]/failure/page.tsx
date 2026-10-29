@@ -1,13 +1,20 @@
 import { Alert, AlertType } from "@/components/alert";
 import { ChooseAuthenticatorToLogin } from "@/components/choose-authenticator-to-login";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getServiceConfig } from "@/lib/service-url";
-import { getBrandingSettings, getLoginSettings, getUserByID, listAuthenticationMethodTypes } from "@/lib/zitadel";
-import { HumanUser, User } from "@zitadel/proto/zitadel/user/v2/user_pb";
+import {
+  getBrandingSettings,
+  getIDPByID,
+  getLoginSettings,
+  getUserByID,
+  listAuthenticationMethodTypes,
+} from "@/lib/zitadel";
+import { User } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export default async function Page(props: {
   searchParams: Promise<Record<string | number | symbol, string | undefined>>;
@@ -15,10 +22,27 @@ export default async function Page(props: {
 }) {
   const searchParams = await props.searchParams;
 
-  const { organization, userId } = searchParams;
+  const { organization, userId, postErrorRedirectUrl, idpId, requestId } = searchParams;
+  const { provider } = await props.params;
 
   const _headers = await headers();
   const { serviceConfig } = getServiceConfig(_headers);
+
+  // A sign-in through a provider that came back without finishing (cancelled
+  // there, or refused) returns to the screen it started on, with a banner
+  // naming the provider (baseproof/legal-agents#120, 01·D). Only a path on
+  // this login is followed, never another site.
+  if (!userId && postErrorRedirectUrl?.startsWith("/") && !postErrorRedirectUrl.startsWith("//")) {
+    const idp = idpId ? await getIDPByID({ serviceConfig, id: idpId }) : undefined;
+    const back = new URLSearchParams({ idpFailed: idp?.name || provider });
+    if (requestId) {
+      back.set("requestId", requestId);
+    }
+    if (organization) {
+      back.set("organization", organization);
+    }
+    redirect(`${postErrorRedirectUrl}?${back}`);
+  }
 
   const branding = await getBrandingSettings({ serviceConfig, organization });
 
@@ -26,7 +50,6 @@ export default async function Page(props: {
 
   let authMethods: AuthenticationMethodType[] = [];
   let user: User | undefined = undefined;
-  let human: HumanUser | undefined = undefined;
 
   const params = new URLSearchParams({});
   if (organization) {
@@ -40,9 +63,6 @@ export default async function Page(props: {
     const userResponse = await getUserByID({ serviceConfig, userId });
     if (userResponse) {
       user = userResponse.user;
-      if (user?.type.case === "human") {
-        human = user.type.value as HumanUser;
-      }
 
       if (user?.preferredLoginName) {
         params.set("loginName", user.preferredLoginName);
@@ -63,18 +83,17 @@ export default async function Page(props: {
         </h1>
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
         <Alert type={AlertType.ALERT}>
           <Translated i18nKey="loginError.description" namespace="idp" />
         </Alert>
 
-        {userId && authMethods.length && (
+        {userId && authMethods.length > 0 && (
           <>
-            {user && human && (
-              <UserAvatar
+            {user?.preferredLoginName && (
+              <EmailChip
                 loginName={user.preferredLoginName}
-                displayName={human?.profile?.displayName}
-                showDropdown={false}
+                changeHref={loginNameHref({ loginName: user.preferredLoginName, organization, requestId })}
               />
             )}
 

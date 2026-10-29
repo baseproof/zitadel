@@ -1,7 +1,7 @@
 import type { Cookie } from "@/lib/cookies";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { FlowInitiationParams, handleOIDCFlowInitiation } from "./flow-initiation";
+import { FlowInitiationParams, handleOIDCFlowInitiation, handleSAMLFlowInitiation } from "./flow-initiation";
 
 vi.mock("@/lib/cookies", () => ({
   getLanguageCookie: vi.fn(),
@@ -41,7 +41,13 @@ vi.mock("@/lib/zitadel", () => ({
 }));
 
 vi.mock("@zitadel/client", () => ({
+  Code: { NotFound: 5 },
   create: vi.fn(),
+}));
+
+vi.mock("@/lib/grpc/interceptors/error-classification", () => ({
+  isClassifiedError: (error: unknown): boolean =>
+    typeof error === "object" && error !== null && "code" in error && typeof (error as any).code === "number",
 }));
 
 vi.mock("escape-html", () => ({
@@ -1090,5 +1096,45 @@ describe("handleOIDCFlowInitiation — idp scope (urn:zitadel:iam:org:idp:id)", 
         urls: expect.objectContaining({ loginHint: "user@example.com" }),
       }),
     );
+  });
+});
+
+// 01·F: Zitadel deletes a request once it succeeds or fails, so a link opened
+// again answers NotFound (QUERY-Thee9).
+describe("a sign-in link whose request Zitadel no longer holds", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const serviceUrl = await import("@/lib/service-url");
+    vi.mocked(serviceUrl.constructUrl).mockImplementation((_req: any, path: string) => {
+      return new URL(`https://example.com${path}`);
+    });
+  });
+
+  test("an OIDC request answering NotFound opens the expired-link page", async () => {
+    const zitadel = await import("@/lib/zitadel");
+    vi.mocked(zitadel.getAuthRequest).mockRejectedValue({ code: 5, message: "Errors.AuthRequest.NotExisting" });
+
+    const response = await handleOIDCFlowInitiation(makeBaseParams());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://example.com/link-expired");
+  });
+
+  test("a SAML request answering NotFound opens the expired-link page", async () => {
+    const zitadel = await import("@/lib/zitadel");
+    vi.mocked(zitadel.getSAMLRequest).mockRejectedValue({ code: 5, message: "Errors.SamlRequest.NotExisting" });
+
+    const response = await handleSAMLFlowInitiation(makeBaseParams({ requestId: "saml_abc123" }));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://example.com/link-expired");
+  });
+
+  test("any other failure still propagates", async () => {
+    const zitadel = await import("@/lib/zitadel");
+    const unavailable = { code: 14, message: "unavailable" };
+    vi.mocked(zitadel.getAuthRequest).mockRejectedValue(unavailable);
+
+    await expect(handleOIDCFlowInitiation(makeBaseParams())).rejects.toBe(unavailable);
   });
 });

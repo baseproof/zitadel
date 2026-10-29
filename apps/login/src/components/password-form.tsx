@@ -11,8 +11,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Alert, AlertType } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
+import { EmailChip, loginNameHref } from "./email-chip";
 import { TextInput } from "./input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
@@ -27,11 +27,32 @@ type Props = {
   organization?: string;
   defaultOrganization?: string;
   requestId?: string;
+  // "noPasskey": "Passwordless sign-in" found no passkey on this account (02a·E).
+  notice?: "noPasskey";
+  // An administrator reset the password (02a·F): no password is asked for,
+  // the emailed link sets a new one.
+  resetRequired?: boolean;
 };
 
-export function PasswordForm({ loginSettings, loginName, organization, defaultOrganization, requestId }: Props) {
-  const { register, handleSubmit, formState } = useForm<Inputs>({
-    mode: "onChange",
+export function PasswordForm({
+  loginSettings,
+  loginName,
+  organization,
+  defaultOrganization,
+  requestId,
+  notice,
+  resetRequired,
+}: Props) {
+  // Buttons stay enabled; the checks run when the user submits.
+  const {
+    register,
+    handleSubmit,
+    setError: setFieldError,
+    resetField,
+    formState: { errors },
+  } = useForm<Inputs>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
   });
 
   const t = useTranslations("password");
@@ -58,6 +79,15 @@ export function PasswordForm({ loginSettings, loginName, organization, defaultOr
         }),
         requestId,
       });
+
+      // Typed values stay, except the password after a failed attempt.
+      if (response && "error" in response) {
+        resetField("password");
+        if (response.field === "password") {
+          setFieldError("password", { type: "server", message: response.error }, { shouldFocus: true });
+          return;
+        }
+      }
 
       handleServerActionResponse(response, router, setSamlData, setError);
     } catch {
@@ -108,60 +138,110 @@ export function PasswordForm({ loginSettings, loginName, organization, defaultOr
     return router.push("/password/set?" + params);
   }
 
+  const locked = error === t("errors.accountLocked");
+
+  const useDifferentEmail = (
+    <Button
+      type="button"
+      className="w-full"
+      variant={ButtonVariants.Secondary}
+      onClick={() => router.push(loginNameHref({ organization, requestId }))}
+      data-testid="different-email-button"
+    >
+      <Translated i18nKey="verify.useDifferentEmail" namespace="password" />
+    </Button>
+  );
+
+  // 02a·F: an administrator reset the password; the old one no longer works.
+  if (resetRequired) {
+    return (
+      <div className="flex w-full flex-col gap-3">
+        <Alert type={AlertType.INFO} title={t("verify.resetByAdmin.title")}>
+          {t("verify.resetByAdmin.description")}
+        </Alert>
+        {error && <Alert>{error}</Alert>}
+        <Button
+          type="button"
+          className="mt-3 w-full"
+          variant={ButtonVariants.Primary}
+          disabled={loading}
+          onClick={() => resetPasswordAndContinue()}
+          data-testid="send-link-button"
+        >
+          {loading && <Spinner className="mr-2 h-5 w-5" />}
+          <Translated i18nKey="verify.resetByAdmin.sendLink" namespace="password" />
+        </Button>
+        {useDifferentEmail}
+      </div>
+    );
+  }
+
+  // 02a·B: Zitadel locked the account; only an administrator unlocks it.
+  if (locked) {
+    return (
+      <div className="flex w-full flex-col gap-3" data-testid="error">
+        <Alert title={error}>{t("errors.accountLockedHint")}</Alert>
+        <div className="mt-3">{useDifferentEmail}</div>
+      </div>
+    );
+  }
+
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
-        <div className={`${error && "animate-shake transform-gpu"}`}>
-          <TextInput
-            type="password"
-            autoComplete="password"
-            autoFocus
-            {...register("password", { required: t("verify.required.password") })}
-            label={t("verify.labels.password")}
-            data-testid="password-text-input"
-          />
-          {!loginSettings?.hidePasswordReset && (
-            <button
-              className="hover:text-primary-light-500 dark:hover:text-primary-dark-500 text-sm transition-all"
-              onClick={() => resetPasswordAndContinue()}
-              type="button"
-              disabled={loading}
-              data-testid="reset-button"
-            >
-              <Translated i18nKey="verify.resetPassword" namespace="password" />
-            </button>
-          )}
-
-          {loginName && <input type="hidden" name="loginName" autoComplete="username" value={loginName} />}
+      {notice === "noPasskey" && (
+        <div className="mb-6">
+          <Alert type={AlertType.INFO} title={t("verify.noPasskey.title")}>
+            {t("verify.noPasskey.description")}
+          </Alert>
         </div>
-
-        {info && (
-          <div className="py-4">
-            <Alert type={AlertType.INFO}>{info}</Alert>
-          </div>
-        )}
-
-        {error && (
-          <div className="py-4" data-testid="error">
-            <Alert>{error}</Alert>
-          </div>
-        )}
-
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton data-testid="back-button" />
-          <span className="flex-grow"></span>
-          <Button
-            type="submit"
-            className="self-end"
-            variant={ButtonVariants.Primary}
-            disabled={loading || !formState.isValid}
-            onClick={handleSubmit(submitPassword)}
-            data-testid="submit-button"
-          >
-            {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="verify.submit" namespace="password" />
-          </Button>
+      )}
+      {error && (
+        <div className="mb-6" data-testid="error">
+          <Alert title={error} />
         </div>
+      )}
+      {info && (
+        <div className="mb-6">
+          <Alert type={AlertType.INFO}>{info}</Alert>
+        </div>
+      )}
+      <form method="post" className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(submitPassword)}>
+        <EmailChip loginName={loginName} changeHref={loginNameHref({ loginName, organization, requestId })} />
+        <TextInput
+          type="password"
+          autoComplete="current-password"
+          autoFocus
+          {...register("password", { required: t("verify.required.password") })}
+          label={t("verify.labels.password")}
+          labelAction={
+            !loginSettings?.hidePasswordReset && (
+              <button
+                className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
+                onClick={() => resetPasswordAndContinue()}
+                type="button"
+                disabled={loading}
+                data-testid="reset-button"
+              >
+                <Translated i18nKey="verify.resetPassword" namespace="password" />
+              </button>
+            )
+          }
+          error={errors.password?.message}
+          data-testid="password-text-input"
+        />
+
+        {loginName && <input type="hidden" name="loginName" autoComplete="username" value={loginName} />}
+
+        <Button
+          type="submit"
+          className="w-full"
+          variant={ButtonVariants.Primary}
+          disabled={loading}
+          data-testid="submit-button"
+        >
+          {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="verify.submit" namespace="password" />
+        </Button>
       </form>
     </>
   );

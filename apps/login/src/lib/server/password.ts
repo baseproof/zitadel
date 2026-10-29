@@ -10,6 +10,7 @@ import {
   getPasswordExpirySettings,
   getSession,
   getUserByID,
+  isRejectedCode,
   listAuthenticationMethodTypes,
   passwordReset,
   searchUsers,
@@ -136,9 +137,40 @@ export type UpdateSessionCommand = {
   requestId?: string;
 };
 
-export async function sendPassword(
-  command: UpdateSessionCommand,
-): Promise<{ error: string } | { redirect: string } | { samlData: { url: string; fields: Record<string, string> } }> {
+// Zitadel counts the failed checks and locks the user at the lockout limit;
+// only an administrator unlocks it (a password reset does not), so a locked
+// account is a banner, a wrong password a field error with the attempts left
+// (baseproof/legal-agents#120, 02a·A and 02a·B).
+async function wrongPasswordResponse(
+  failedAttempts: number,
+  organization: string | undefined,
+): Promise<{ error: string; field?: "password" }> {
+  const _headers = await headers();
+  const { serviceConfig } = getServiceConfig(_headers);
+  const t = await getTranslations("password");
+
+  const lockoutSettings = await getLockoutSettings({ serviceConfig, orgId: organization });
+  const maxPasswordAttempts = Number(lockoutSettings?.maxPasswordAttempts ?? BigInt(0));
+
+  if (maxPasswordAttempts > 0 && failedAttempts >= maxPasswordAttempts) {
+    return { error: t("errors.accountLocked") };
+  }
+
+  return {
+    error:
+      maxPasswordAttempts > 0
+        ? t("errors.wrongPasswordAttemptsLeft", { attemptsLeft: maxPasswordAttempts - failedAttempts })
+        : t("errors.failedToAuthenticateNoLimit"),
+    field: "password",
+  };
+}
+
+export async function sendPassword(command: UpdateSessionCommand): Promise<
+  // field: the error belongs under that field rather than in a banner.
+  | { error: string; field?: "password" }
+  | { redirect: string }
+  | { samlData: { url: string; fields: Record<string, string> } }
+> {
   const _headers = await headers();
   const { serviceConfig } = getServiceConfig(_headers);
   const t = await getTranslations("password");
@@ -194,7 +226,14 @@ export async function sendPassword(
         // Force fallback if settings can't be loaded
         throw new Error("Could not load login settings");
       }
-    } catch {
+    } catch (error: any) {
+      // A wrong password is Zitadel's answer, not a broken session: report it.
+      // Falling back to a new session would check the same password a second
+      // time, and Zitadel would count that failed attempt too.
+      if (error && typeof error === "object" && "failedAttempts" in error && error.failedAttempts) {
+        recordAuthFailure("password", "invalid_password", command.organization);
+        return wrongPasswordResponse(error.failedAttempts, command.organization);
+      }
       logger.warn("[Password] Could not update session");
       // If the session was terminated or any other error occurred during update,
       // we fall back to creating a new session.
@@ -284,20 +323,7 @@ export async function sendPassword(
           if (loginSettingsByContext?.ignoreUnknownUsernames) {
             return { error: t("errors.failedToAuthenticateNoLimit") };
           }
-          const lockoutSettings = await getLockoutSettings({ serviceConfig, orgId: command.organization });
-
-          const hasLimit =
-            lockoutSettings?.maxPasswordAttempts !== undefined && lockoutSettings?.maxPasswordAttempts > BigInt(0);
-          const locked = hasLimit && error.failedAttempts >= lockoutSettings?.maxPasswordAttempts;
-          const messageKey = hasLimit ? "errors.failedToAuthenticate" : "errors.failedToAuthenticateNoLimit";
-
-          return {
-            error: t(messageKey, {
-              failedAttempts: error.failedAttempts,
-              maxPasswordAttempts: hasLimit ? String(lockoutSettings?.maxPasswordAttempts ?? 0) : "?",
-              lockoutMessage: locked ? t("errors.accountLockedContactAdmin") : "",
-            }),
-          };
+          return wrongPasswordResponse(error.failedAttempts, command.organization);
         }
         recordAuthFailure("password", "session_creation_failed", command.organization);
         if (loginSettingsByContext?.ignoreUnknownUsernames) {
@@ -486,7 +512,16 @@ export async function changePassword(command: { code?: string; userId: string; p
     }
   }
 
-  return setUserPassword({ serviceConfig, userId, password: command.password, code: command.code });
+  return setUserPassword({ serviceConfig, userId, password: command.password, code: command.code }).catch(
+    (error: unknown) => {
+      // The reset asks for its code again (baseproof/legal-agents#120): a wrong,
+      // expired or used code reads as 03·B.
+      if (isRejectedCode(error)) {
+        return { error: t("set.errors.codeRejected"), field: "code" as const };
+      }
+      throw error;
+    },
+  );
 }
 
 type CheckSessionAndSetPasswordCommand = {

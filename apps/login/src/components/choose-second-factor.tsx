@@ -28,16 +28,20 @@ export function ChooseSecondFactor({ loginName, sessionId, requestId, organizati
   }
 
   return (
-    <div className="grid w-full grid-cols-1 gap-5 pt-4">
-      {userMethods.map((method, i) => {
-        return (
-          <div key={"method-" + i}>
-            {method === AuthenticationMethodType.TOTP && TOTP(false, "/otp/time-based?" + params)}
-            {method === AuthenticationMethodType.U2F && U2F(false, "/u2f?" + params)}
-            {method === AuthenticationMethodType.OTP_EMAIL && EMAIL(false, "/otp/email?" + params)}
-            {method === AuthenticationMethodType.OTP_SMS && SMS(false, "/otp/sms?" + params)}
-          </div>
-        );
+    <div className="flex w-full flex-col gap-2">
+      {userMethods.map((method) => {
+        switch (method) {
+          case AuthenticationMethodType.TOTP:
+            return TOTP(false, "/otp/time-based?" + params);
+          case AuthenticationMethodType.U2F:
+            return U2F(false, "/u2f?" + params);
+          case AuthenticationMethodType.OTP_EMAIL:
+            return EMAIL(false, "/otp/email?" + params);
+          case AuthenticationMethodType.OTP_SMS:
+            return SMS(false, "/otp/sms?" + params);
+          default:
+            return null;
+        }
       })}
     </div>
   );

@@ -1,43 +1,55 @@
 {
   "common": {
     "back": "Back",
-    "title": "Login with Zitadel"
+    "title": "Log in · Baseproof",
+    "email": "Email",
+    "change": "Change"
   },
   "accounts": {
-    "title": "Accounts",
-    "description": "Select the account you want to use.",
-    "addAnother": "Add another account",
-    "noResults": "No accounts found",
-    "verified": "verified",
-    "expired": "expired"
+    "title": "Choose an account",
+    "description": "Continue to Baseproof",
+    "addAnother": "Use another account",
+    "noResults": "No accounts are signed in on this browser.",
+    "verified": "Signed in",
+    "expired": "Signed out"
   },
   "logout": {
-    "title": "Logout",
-    "description": "Click an account to end the session",
-    "noResults": "No accounts found",
-    "clear": "End Session",
-    "verifiedAt": "Last active: {time}",
+    "title": "Log out",
+    "description": "Choose the account to log out of.",
+    "noResults": "No accounts are signed in on this browser.",
+    "clear": "Log out",
+    "verifiedAt": "Last active {time}",
     "success": {
-      "title": "Logout successful",
-      "description": "You have successfully logged out."
+      "title": "You're logged out",
+      "description": "You can close this window."
     }
   },
   "loginname": {
-    "title": "Welcome back!",
-    "description": "Enter your login details.",
-    "register": "Register new user",
-    "submit": "Continue",
+    "title": "Log in",
+    "description": "Continue to Baseproof",
+    "register": "Get started →",
+    "registerPrompt": "New to Baseproof?",
+    "submit": "Continue with email",
+    "tryAgain": "Try again",
+    "passwordless": "Passwordless sign-in",
     "labels": {
-      "loginname": "Loginname",
+      "loginname": "Email",
       "username": "Username",
       "usernameOrPhoneNumber": "Username or phone number",
-      "usernameOrEmail": "Username or email"
+      "usernameOrEmail": "Email"
     },
     "required": {
-      "loginName": "This field is required"
+      "loginName": "Enter your email address."
     },
     "errors": {
-      "internalError": "An internal error occurred",
+      "incompleteEmail": "Enter a full email address, like name@company.com.",
+      "passwordlessNeedsEmail": "Enter your email first. Passwordless sign-in needs it.",
+      "providerFailed": "{provider} sign-in didn't finish",
+      "providerFailedHint": "Try again, or continue with your email.",
+      "internalErrorHint": "Check your connection and try again. What you typed is kept.",
+      "userNotActiveHint": "Ask your Baseproof admin to reactivate it.",
+      "registerByInvitation": "Your organization adds people by invitation. Ask your Baseproof admin for one.",
+      "internalError": "We couldn't reach Baseproof sign-in",
       "couldNotGetLoginSettings": "Could not get login settings",
       "couldNotSearchUsers": "Could not search users",
       "couldNotGetDomain": "Could not get domain",
@@ -50,7 +62,7 @@
       "localAuthenticationNotAllowed": "Local authentication is not allowed! Contact your administrator for more information.",
       "passkeysNotAllowed": "Passkeys not allowed! Contact your administrator for more information.",
       "couldNotFindIdentityProvider": "Could not find identity provider.",
-      "userNotActive": "User is not active. Contact your administrator for more information."
+      "userNotActive": "This account is deactivated"
     }
   },
   "zitadel": {
@@ -62,15 +74,25 @@
   },
   "password": {
     "verify": {
-      "title": "Password",
-      "description": "Enter your password.",
-      "resetPassword": "Reset Password",
-      "submit": "Continue",
+      "title": "Log in",
+      "description": "Continue to Baseproof",
+      "resetPassword": "Forgot password?",
+      "submit": "Log in",
+      "useDifferentEmail": "Use a different email",
       "labels": {
         "password": "Password"
       },
       "required": {
-        "password": "This field is required"
+        "password": "Enter your password."
+      },
+      "noPasskey": {
+        "title": "Passwordless isn't set up for this account yet",
+        "description": "Log in with your password. You can turn on passwordless afterwards."
+      },
+      "resetByAdmin": {
+        "title": "Your administrator reset your password",
+        "description": "Use the link we emailed you, or send a new one.",
+        "sendLink": "Send a new link"
       },
       "errors": {
         "couldNotVerifyPassword": "Could not verify password",
@@ -81,31 +103,44 @@
       }
     },
     "set": {
-      "title": "Set Password",
-      "description": "Set the password for your account",
+      "title": "Set your password",
+      "description": "You'll use it with your work email to sign in.",
+      "resetTitle": "Set a new password",
+      "resetDescription": "Enter the code we emailed to {loginName}, then choose a new password.",
       "codeSent": "A new code has been sent to your email address.",
-      "noCodeReceived": "Didn't receive a code?",
+      "codeHint": "Paste or type the 6-character code.",
+      "noCodeReceived": "Didn't get it?",
       "resend": "Resend code",
+      "next": "Continue",
       "submit": "Continue",
+      "goPasswordless": "Go passwordless instead",
       "labels": {
         "code": "Code",
-        "newPassword": "New Password",
-        "confirmPassword": "Confirm Password"
+        "newPassword": "Password",
+        "confirmPassword": "Confirm password"
       },
       "required": {
-        "code": "This field is required",
-        "newPassword": "You have to provide a password!",
-        "confirmPassword": "This field is required"
+        "code": "Enter all 6 characters.",
+        "newPassword": "Enter a password.",
+        "confirmPassword": "Enter the password again."
       },
       "errors": {
+        "codeIncomplete": "Enter all 6 characters.",
+        "codeRejected": "That code isn't right or has expired. Check the latest email from Baseproof, or resend the code.",
+        "addLength": "Use at least {minLength} characters.",
+        "addNumber": "Add a number to meet the password rules.",
+        "addUppercase": "Add an uppercase letter to meet the password rules.",
+        "addLowercase": "Add a lowercase letter to meet the password rules.",
+        "addSymbol": "Add a symbol to meet the password rules.",
+        "mismatch": "Passwords don't match.",
         "couldNotSetPassword": "Could not set password",
         "couldNotResetPassword": "Could not reset password",
         "couldNotVerifyPassword": "Could not verify password"
       }
     },
     "change": {
-      "title": "Change Password",
-      "description": "Set the password for your account",
+      "title": "Set a new password",
+      "description": "Your account needs a new password before you continue.",
       "submit": "Continue",
       "labels": {
         "currentPassword": "Current Password",
@@ -125,12 +160,12 @@
       }
     },
     "complexity": {
-      "length": "Must be at least {minLength} characters long.",
-      "hasSymbol": "Must include a symbol.",
-      "hasNumber": "Must include a number.",
-      "hasUppercase": "Must include an uppercase letter.",
-      "hasLowercase": "Must include a lowercase letter.",
-      "equals": "Password confirmation matched.",
+      "length": "At least {minLength} characters",
+      "hasSymbol": "A symbol",
+      "hasNumber": "A number",
+      "hasUppercase": "An uppercase letter",
+      "hasLowercase": "A lowercase letter",
+      "equals": "Passwords match",
       "matches": "Matches",
       "doesNotMatch": "Doesn't match"
     },
@@ -140,7 +175,10 @@
       "couldNotCreateSessionForUser": "Could not create session for user",
       "couldNotVerifyPassword": "Could not verify password",
       "failedToAuthenticate": "Failed to authenticate. You had {failedAttempts} of {maxPasswordAttempts} password attempts.{lockoutMessage}",
-      "failedToAuthenticateNoLimit": "Failed to authenticate.",
+      "failedToAuthenticateNoLimit": "That password isn't right.",
+      "wrongPasswordAttemptsLeft": "That password isn't right. {attemptsLeft, plural, one {# attempt} other {# attempts}} left before the account locks.",
+      "accountLocked": "This account is locked",
+      "accountLockedHint": "Too many failed attempts. Ask your Baseproof admin to unlock it.",
       "accountLockedContactAdmin": " Contact your administrator to unlock your account",
       "userNotFound": "User not found in the system",
       "initialUserNotSupported": "Initial User not supported",
@@ -157,9 +195,12 @@
     }
   },
   "idp": {
-    "title": "Sign in with SSO",
-    "description": "Select one of the following providers to sign in",
-    "orSignInWith": "or sign in with",
+    "title": "Log in",
+    "description": "Continue to Baseproof",
+    "orSignInWith": "or",
+    "orSignUpWith": "or sign up with",
+    "signInWithName": "Sign in with {name}",
+    "signUpWithName": "Sign up with {name}",
     "signInWithApple": "Sign in with Apple",
     "signInWithGoogle": "Sign in with Google",
     "signInWithAzureAD": "Sign in with AzureAD",
@@ -167,28 +208,28 @@
     "signInWithGitlab": "Sign in with GitLab",
     "signInWithZitadel": "Sign in with Zitadel",
     "loginError": {
-      "title": "Login failed",
-      "description": "An error occurred while trying to login."
+      "title": "Provider sign-in didn't finish",
+      "description": "Try again, or log in another way."
     },
     "linkingError": {
-      "title": "Account linking failed",
-      "description": "An error occurred while trying to link your account."
+      "title": "Linking didn't finish",
+      "description": "The provider couldn't be linked to your account. Try again, or log in another way."
     },
     "completeRegister": {
-      "title": "Complete your data",
-      "description": "You need to complete your registration by providing your email address and name."
+      "title": "Finish your account",
+      "description": "Add your email address and name to finish creating your account."
     },
     "accountNotFound": {
-      "title": "Account Not Found",
-      "description": "We couldn't find an account associated with your identity provider credentials.",
-      "info": "No existing account was found. Please sign in with an existing account or contact your administrator for assistance.",
-      "backToLogin": "Back to Login"
+      "title": "No account for this sign-in",
+      "description": "No Baseproof account is linked to this provider sign-in.",
+      "info": "Log in with your email instead, or ask your Baseproof admin for access.",
+      "backToLogin": "Back to log in"
     },
     "registrationFailed": {
-      "title": "Registration Not Available",
-      "description": "We couldn't complete the registration process.",
-      "info": "Unable to determine the organization for registration. Please contact your administrator for assistance.",
-      "backToLogin": "Back to Login"
+      "title": "Sign-up isn't available here",
+      "description": "Baseproof couldn't tell which organization this account belongs to.",
+      "info": "Ask your Baseproof admin for an invitation.",
+      "backToLogin": "Back to log in"
     },
     "processing": {
       "message": "Processing authentication...",
@@ -223,44 +264,44 @@
   },
   "mfa": {
     "verify": {
-      "title": "Verify your identity",
-      "description": "Choose one of the following factors.",
-      "noResults": "No second factors available to setup."
+      "title": "Confirm it's you",
+      "description": "Choose your second step.",
+      "noResults": "This account has no second step set up."
     },
     "set": {
-      "title": "Set up 2-Factor",
-      "description": "Choose one of the following second factors.",
-      "skip": "Skip"
+      "title": "Add a second step",
+      "description": "Protect your account with a second step at sign-in.",
+      "skip": "Skip for now"
     }
   },
   "otp": {
     "verify": {
-      "title": "Verify 2-Factor",
-      "totpDescription": "Enter the code from your authenticator app.",
-      "smsDescription": "Enter the code you received via SMS.",
-      "emailDescription": "Enter the code you received via email.",
-      "noCodeReceived": "Didn't receive a code?",
+      "title": "Enter your code",
+      "totpDescription": "Enter the 6-digit code from your authenticator app.",
+      "smsDescription": "Enter the 6-digit code we texted you.",
+      "emailDescription": "Enter the 6-digit code we emailed you.",
+      "noCodeReceived": "Didn't get it?",
       "resendCode": "Resend code",
       "submit": "Continue",
       "labels": {
         "code": "Code"
       },
       "required": {
-        "code": "This field is required"
+        "code": "Enter all 6 digits."
       }
     },
     "set": {
-      "title": "Set up 2-Factor",
+      "title": "Add a second step",
       "totpDescription": "Scan the QR code with your authenticator app.",
-      "smsDescription": "Enter your phone number to receive a code via SMS.",
-      "emailDescription": "Enter your email address to receive a code via email.",
-      "totpRegisterDescription": "Scan the QR Code or navigate to the URL manually.",
+      "smsDescription": "Enter your phone number to get codes by text message.",
+      "emailDescription": "Enter your email address to get codes by email.",
+      "totpRegisterDescription": "Scan the QR code with your authenticator app, then enter the 6-digit code it shows.",
       "submit": "Continue",
       "labels": {
         "code": "Code"
       },
       "required": {
-        "code": "This field is required"
+        "code": "Enter all 6 digits."
       }
     },
     "errors": {
@@ -270,17 +311,20 @@
   },
   "passkey": {
     "verify": {
-      "title": "Authenticate with a passkey",
-      "description": "Your device will ask for your fingerprint, face, or screen lock",
-      "usePassword": "Use password",
+      "title": "Log in",
+      "description": "Continue to Baseproof",
+      "usePassword": "Use password instead",
+      "useDifferentEmail": "Use a different email",
       "submit": "Continue",
+      "tryAgain": "Try again",
       "errors": {
         "couldNotRequestChallenge": "Could not request passkey challenge",
         "couldNotVerifyPasskey": "Could not verify passkey",
         "noResponseReceived": "Passkey verification failed - no response received",
         "noRedirectProvided": "Passkey verification completed but no redirect was provided",
         "couldNotRetrievePasskey": "An error occurred while retrieving passkey",
-        "verificationCancelled": "Passkey verification was cancelled",
+        "verificationCancelled": "Passwordless sign-in didn't finish",
+        "verificationCancelledHint": "The request was cancelled or timed out.",
         "verificationFailed": "An error occurred during passkey verification",
         "couldNotFindSession": "Could not find session",
         "couldNotUpdateSession": "Could not update session",
@@ -289,24 +333,49 @@
       }
     },
     "set": {
-      "title": "Setup a passkey",
+      "title": "Passwordless is a better way to sign in",
       "description": "Your device will ask for your fingerprint, face, or screen lock",
       "info": {
         "description": "A passkey is an authentication method on a device like your fingerprint, Apple FaceID or similar. ",
         "link": "Passkey Authentication"
       },
+      "benefits": {
+        "noPassword": {
+          "title": "No password to remember",
+          "description": "Sign in with your fingerprint, face or device PIN."
+        },
+        "devices": {
+          "title": "Works across your devices",
+          "description": "It syncs through your Apple, Google or Microsoft account."
+        },
+        "phishing": {
+          "title": "Harder to phish",
+          "description": "It only works on {host}, so a fake site can't use it."
+        }
+      },
+      "cancelled": {
+        "title": "Passwordless setup didn't finish",
+        "description": "The request was cancelled or timed out."
+      },
+      "unsupported": {
+        "title": "This browser can't set up passwordless sign-in",
+        "description": "Use a password for now. You can add passwordless later from another browser."
+      },
+      "tryAgain": "Try again",
+      "usePassword": "Use password instead",
+      "usePasswordShort": "Use a password",
       "skip": "Skip",
-      "submit": "Continue"
+      "submit": "Set up passwordless"
     }
   },
   "u2f": {
     "verify": {
-      "title": "Verify 2-Factor",
-      "description": "Verify your account with your device."
+      "title": "Use your security key",
+      "description": "Insert or touch your security key to continue."
     },
     "set": {
-      "title": "Set up 2-Factor",
-      "description": "Set up a device as a second factor.",
+      "title": "Add a security key",
+      "description": "Insert or touch your security key when your browser asks.",
       "submit": "Continue"
     }
   },
@@ -323,14 +392,24 @@
       "title": "Missing data",
       "description": "Provide email, first and last name to register."
     },
-    "title": "Register",
-    "description": "Create your Zitadel account.",
+    "title": "Create your Baseproof account",
+    "description": "Title research your agency can trust: every finding traced to a record.",
     "noMethodAvailableWarning": "No authentication method available. Please contact your administrator.",
     "selectMethod": "Select the method you would like to authenticate",
     "agreeTo": "To register you must agree to the terms and conditions",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "submit": "Continue",
+    "newEmailCallout": "No account uses {email} yet. Add your name to create one.",
+    "haveAccount": "Already have an account?",
+    "logIn": "Log in →",
+    "logInInstead": "Log in instead",
+    "useDifferentEmail": "Use a different email",
+    "consent": {
+      "agreeTo": "I agree to the",
+      "and": "and",
+      "required": "Accept the Terms of Service and Privacy Policy to continue."
+    },
     "password": {
       "title": "Set Password",
       "description": "Set the password for your account",
@@ -347,14 +426,16 @@
     "labels": {
       "firstname": "First name",
       "lastname": "Last name",
-      "email": "E-mail"
+      "email": "Email"
     },
     "required": {
-      "firstname": "This field is required",
-      "lastname": "This field is required",
-      "email": "This field is required"
+      "firstname": "Enter your first name.",
+      "lastname": "Enter your last name.",
+      "email": "Enter your email address."
     },
     "errors": {
+      "userAlreadyExists": "An account already uses this email",
+      "userAlreadyExistsHint": "Log in instead, or use a different email.",
       "couldNotCreateUser": "Could not create user",
       "couldNotCreateSession": "Could not create session",
       "userNotFound": "User not found in the system",
@@ -377,8 +458,8 @@
     }
   },
   "signedin": {
-    "title": "Welcome {user}!",
-    "description": "You are signed in.",
+    "title": "You're signed in",
+    "description": "Continue to Baseproof",
     "continue": "Continue",
     "error": {
       "title": "Error",
@@ -387,25 +468,29 @@
   },
   "verify": {
     "userIdMissing": "No userId provided!",
-    "successTitle": "User verified",
-    "successDescription": "The user has been verified successfully.",
+    "successTitle": "Email verified",
+    "successDescription": "Your email address is confirmed.",
     "successContinue": "Continue",
-    "setupAuthenticator": "Setup authenticator",
+    "setupAuthenticator": "Set up sign-in",
     "verify": {
-      "title": "Verify user",
-      "description": "Enter the Code provided in the verification email.",
-      "noCodeReceived": "Didn't receive a code?",
+      "title": "Verify your email",
+      "description": "Enter the code we sent to {email}.",
+      "noCodeReceived": "Didn't get it?",
       "resendCode": "Resend code",
-      "codeSent": "A new code has just been sent to your email address.",
-      "submit": "Continue",
+      "resendIn": "Resend available in {time}",
+      "codeSent": "New code sent",
+      "codeSentHint": "Earlier codes no longer work.",
+      "codeHint": "Paste or type the 6-character code.",
+      "submit": "Verify",
       "labels": {
         "code": "Code"
       },
       "required": {
-        "code": "This field is required"
+        "code": "Enter all 6 characters."
       }
     },
     "errors": {
+      "codeRejected": "That code isn't right or has expired. Check the latest email from Baseproof, or resend the code.",
       "couldNotResendEmail": "Could not resend email",
       "couldNotVerifyUser": "Could not verify user",
       "couldNotVerifyInvite": "Could not verify invite",
@@ -423,17 +508,17 @@
     }
   },
   "authenticator": {
-    "title": "Choose authentication method",
-    "description": "Select the method you would like to authenticate",
-    "noMethodsAvailable": "No authentication methods available",
-    "allSetup": "You have already setup an authenticator!",
-    "linkWithIDP": "or link with an Identity Provider",
+    "title": "Choose how you'll log in",
+    "description": "Your account needs a way to log in to Baseproof.",
+    "noMethodsAvailable": "No way to log in is available.",
+    "allSetup": "This account already has a way to log in.",
+    "linkWithIDP": "or link a provider",
     "methods": {
-      "totp": "Authenticator App",
-      "u2f": "Universal Second Factor",
-      "otpEmail": "Code via Email",
-      "otpSms": "Code via SMS",
-      "passkey": "Passkeys",
+      "totp": "Authenticator app",
+      "u2f": "Security key",
+      "otpEmail": "Code by email",
+      "otpSms": "Code by text message",
+      "passkey": "Passkey",
       "password": "Password"
     }
   },
@@ -452,7 +537,7 @@
     "request": {
       "title": "{appName} would like to connect",
       "description": "{appName} will have access to:",
-      "disclaimer": "By clicking Allow, you allow {appName} and Zitadel to use your information in accordance with their respective terms of service and privacy policies. You can revoke this access at any time.",
+      "disclaimer": "By clicking Allow, you let {appName} use your information under its terms of service and privacy policy. You can revoke this access at any time.",
       "usercode": "Code displayed on your device:",
       "submit": "Allow",
       "deny": "Deny"
@@ -473,5 +558,10 @@
     "tryagain": "Try Again",
     "couldNotContinueSession": "Could not continue with session - missing user information",
     "couldNotClearSession": "Could not end the session. Please try again."
+  },
+  "linkExpired": {
+    "title": "This sign-in link has expired",
+    "description": "Go back to Baseproof and start again.",
+    "back": "Back to Baseproof"
   }
 }

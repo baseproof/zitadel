@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Alert } from "./alert";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
 import { TextInput } from "./input";
 import { Spinner } from "./spinner";
@@ -82,7 +81,7 @@ export function LDAPUsernamePasswordForm({
   }
 
   return (
-    <form className="w-full space-y-4">
+    <form method="post" className="w-full space-y-4">
       <TextInput
         type="text"
         autoComplete="username"
@@ -111,12 +110,10 @@ export function LDAPUsernamePasswordForm({
         </div>
       )}
 
-      <div className="mt-8 flex w-full flex-row items-center">
-        <BackButton data-testid="back-button" />
-        <span className="flex-grow"></span>
+      <div className="mt-7 w-full">
         <Button
           type="submit"
-          className="self-end"
+          className="w-full"
           variant={ButtonVariants.Primary}
           disabled={loading || !formState.isValid}
           onClick={handleSubmit(submitUsernamePassword)}

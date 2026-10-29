@@ -1,9 +1,8 @@
 import { Alert } from "@/components/alert";
-import { BackButton } from "@/components/back-button";
 import { ChooseSecondFactor } from "@/components/choose-second-factor";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -69,6 +68,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   const branding = await getBrandingSettings({ serviceConfig, organization });
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -78,23 +79,16 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         <p className="ztdl-p">
           <Translated i18nKey="verify.description" namespace="mfa" />
         </p>
-
-        {sessionFactors && (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
         {!(loginName || sessionId) && (
           <Alert>
             <Translated i18nKey="unknownContext" namespace="error" />
           </Alert>
         )}
+
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
 
         {sessionFactors ? (
           <ChooseSecondFactor
@@ -109,11 +103,6 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             <Translated i18nKey="verify.noResults" namespace="mfa" />
           </Alert>
         )}
-
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton />
-          <span className="flex-grow"></span>
-        </div>
       </div>
     </DynamicTheme>
   );

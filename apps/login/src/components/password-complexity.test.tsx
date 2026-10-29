@@ -89,9 +89,11 @@ describe("<PasswordComplexity/>", () => {
       </NextIntlClientProvider>,
     );
 
+    // A met rule shows the check, in branding's primary color.
     const lengthCheck = screen.getByTestId("length-check");
     const svg = lengthCheck.querySelector("svg");
-    expect(svg).toHaveClass("text-green-500");
+    expect(svg).toHaveClass("text-primary-light-500");
+    expect(svg?.querySelector("title")?.textContent).toBe(messages.password.complexity.matches);
   });
 
   test("should render cross icon when password does not meet length requirement", () => {
@@ -114,9 +116,36 @@ describe("<PasswordComplexity/>", () => {
       </NextIntlClientProvider>,
     );
 
+    // An unmet rule shows the cross; its line turns to the warn color only
+    // after a submit (showErrors, 02d·A).
     const lengthCheck = screen.getByTestId("length-check");
     const svg = lengthCheck.querySelector("svg");
-    expect(svg).toHaveClass("text-warn-light-500");
+    expect(svg?.querySelector("title")?.textContent).toBe(messages.password.complexity.doesNotMatch);
+    expect(lengthCheck).not.toHaveClass("text-warn-light-500");
+  });
+
+  test("should show an unmet rule in the warn color after a submit", () => {
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <PasswordComplexity
+          password="Pass"
+          equals
+          showErrors
+          passwordComplexitySettings={
+            {
+              minLength: BigInt(10),
+              requiresLowercase: false,
+              requiresUppercase: false,
+              requiresNumber: false,
+              requiresSymbol: false,
+              resourceOwnerType: 0,
+            } as any
+          }
+        />
+      </NextIntlClientProvider>,
+    );
+
+    expect(screen.getByTestId("length-check")).toHaveClass("text-warn-light-500");
   });
 
   test("should render all complexity checks when all requirements are enabled", () => {

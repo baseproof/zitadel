@@ -9,12 +9,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
 import { Button, ButtonVariants } from "./button";
+import { CodeInput } from "./code-input";
 import { CopyToClipboard } from "./copy-to-clipboard";
-import { TextInput } from "./input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
 
@@ -38,8 +38,14 @@ export function TotpRegister({ uri, loginName, sessionId, requestId, organizatio
   const [samlData, setSamlData] = useState<{ url: string; fields: Record<string, string> } | null>(null);
   const router = useRouter();
 
-  const { register, handleSubmit, formState } = useForm<Inputs>({
-    mode: "onChange",
+  // The button stays enabled; the check runs when the user submits.
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Inputs>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       code: "",
     },
@@ -101,49 +107,52 @@ export function TotpRegister({ uri, loginName, sessionId, requestId, organizatio
   }
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex w-full flex-col gap-5">
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
       {uri && (
         <>
-          <QRCodeSVG className="my-4 h-40 w-40 rounded-md bg-white p-2" value={uri} />
-          <div className="border-divider-light dark:border-divider-dark my-2 mb-4 flex w-96 rounded-lg border px-4 py-2 pr-2 text-sm">
-            <Link href={uri} target="_blank" className="flex-1 overflow-x-auto">
+          <QRCodeSVG className="h-40 w-40 rounded-[8px] bg-white p-2" value={uri} />
+          <div className="flex w-full flex-row items-center gap-2 rounded-[8px] bg-[var(--bp-surface)] py-2 pr-2 pl-[14px] text-[13px]">
+            <Link href={uri} target="_blank" className="min-w-0 flex-1 truncate">
               {uri}
             </Link>
 
             <CopyToClipboard value={uri}></CopyToClipboard>
           </div>
-          <form className="w-full">
-            <div className="">
-              <TextInput
-                type="text"
-                autoFocus
-                {...register("code", { required: t("set.required.code") })}
-                label={t("set.labels.code")}
-                data-testid="code-text-input"
-              />
-            </div>
 
-            {error && (
-              <div className="py-4">
-                <Alert>{error}</Alert>
-              </div>
-            )}
+          {error && <Alert>{error}</Alert>}
 
-            <div className="mt-8 flex w-full flex-row items-center">
-              <span className="flex-grow"></span>
-              <Button
-                type="submit"
-                className="self-end"
-                variant={ButtonVariants.Primary}
-                disabled={loading || !formState.isValid}
-                onClick={handleSubmit(continueWithCode)}
-                data-testid="submit-button"
-              >
-                {loading && <Spinner className="mr-2 h-5 w-5" />}
-                <Translated i18nKey="set.submit" namespace="otp" />
-              </Button>
-            </div>
+          <form method="post" className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(continueWithCode)}>
+            <Controller
+              control={control}
+              name="code"
+              rules={{
+                required: t("set.required.code"),
+                validate: (value: string) => value.length === 6 || t("set.required.code"),
+              }}
+              render={({ field }) => (
+                <CodeInput
+                  ref={field.ref}
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  label={t("set.labels.code")}
+                  error={errors.code?.message}
+                  autoFocus
+                />
+              )}
+            />
+
+            <Button
+              type="submit"
+              className="w-full"
+              variant={ButtonVariants.Primary}
+              disabled={loading}
+              data-testid="submit-button"
+            >
+              {loading && <Spinner className="mr-2 h-5 w-5" />}
+              <Translated i18nKey="set.submit" namespace="otp" />
+            </Button>
           </form>
         </>
       )}
