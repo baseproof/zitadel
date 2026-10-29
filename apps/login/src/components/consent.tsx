@@ -89,22 +89,7 @@ export function ConsentScreen({
         </div>
       )}
 
-      <div className="mt-4 flex w-full flex-row items-center">
-        <Button
-          onClick={() =>
-            run(
-              () => denyDeviceAuthorization({ userCode, sessionId, organization }),
-              (response) => router.push(response.redirect ?? "/device"),
-            )
-          }
-          variant={ButtonVariants.Secondary}
-          data-testid="deny-button"
-        >
-          {loading && <Spinner className="mr-2 h-5 w-5" />}
-          <Translated i18nKey="request.deny" namespace="device" />
-        </Button>
-        <span className="flex-grow"></span>
-
+      <div className="mt-4 flex w-full flex-col gap-2">
         <Button
           onClick={() =>
             run(
@@ -114,11 +99,26 @@ export function ConsentScreen({
           }
           disabled={loading}
           data-testid="submit-button"
-          className="self-end"
+          className="w-full"
           variant={ButtonVariants.Primary}
         >
           {loading && <Spinner className="mr-2 h-5 w-5" />}
           <Translated i18nKey="request.submit" namespace="device" />
+        </Button>
+
+        <Button
+          onClick={() =>
+            run(
+              () => denyDeviceAuthorization({ userCode, sessionId, organization }),
+              (response) => router.push(response.redirect ?? "/device"),
+            )
+          }
+          className="w-full"
+          variant={ButtonVariants.Secondary}
+          data-testid="deny-button"
+        >
+          {loading && <Spinner className="mr-2 h-5 w-5" />}
+          <Translated i18nKey="request.deny" namespace="device" />
         </Button>
       </div>
     </div>

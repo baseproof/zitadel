@@ -5,6 +5,7 @@ import { ExclamationCircleIcon } from "@heroicons/react/24/outline";
 import { LegalAndSupportSettings } from "@zitadel/proto/zitadel/settings/v2/legal_settings_pb";
 import { useLocale, useTranslations } from "next-intl";
 import { forwardRef, InputHTMLAttributes, useId } from "react";
+import { CheckboxTick } from "./checkbox";
 
 type Props = InputHTMLAttributes<HTMLInputElement> & {
   legal: LegalAndSupportSettings;
@@ -40,16 +41,19 @@ export const ConsentCheckbox = forwardRef<HTMLInputElement, Props>(function Cons
   return (
     <div className="flex flex-col gap-[6px] text-[14px]">
       <div className="flex flex-row items-center gap-[10px]">
-        <input
-          ref={ref}
-          id={id}
-          type="checkbox"
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
-          className="form-checkbox text-primary-light-500 dark:text-primary-dark-500 focus:ring-primary-light-500 dark:focus:ring-primary-dark-500 h-[18px] w-[18px] flex-shrink-0 rounded-[4px] border border-[var(--bp-input-border)] bg-transparent focus:ring-2 focus:ring-offset-0"
-          data-testid="consent-checkbox"
-          {...props}
-        />
+        <span className="relative flex h-[18px] w-[18px] flex-shrink-0">
+          <input
+            ref={ref}
+            id={id}
+            type="checkbox"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
+            className="peer form-checkbox text-primary-light-500 dark:text-primary-dark-500 focus:ring-primary-light-500 dark:focus:ring-primary-dark-500 h-[18px] w-[18px] rounded-[4px] border border-[var(--bp-input-border)] bg-transparent focus:ring-2 focus:ring-offset-0"
+            data-testid="consent-checkbox"
+            {...props}
+          />
+          <CheckboxTick />
+        </span>
         <label htmlFor={id}>
           {t("consent.agreeTo")} {tosLink && link(tosLink, t("termsOfService"))}
           {tosLink && privacyPolicyLink && ` ${t("consent.and")} `}

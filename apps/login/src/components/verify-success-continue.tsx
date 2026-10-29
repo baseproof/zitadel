@@ -13,15 +13,14 @@ export function VerifySuccessContinue({ continueUrl }: Props) {
   const t = useTranslations("verify");
 
   return (
-    <div className="mt-8 flex w-full flex-row items-center justify-end">
-      <Button
-        type="button"
-        variant={ButtonVariants.Primary}
-        onClick={() => router.push(continueUrl)}
-        data-testid="continue-button"
-      >
-        {t("successContinue")}
-      </Button>
-    </div>
+    <Button
+      type="button"
+      className="w-full"
+      variant={ButtonVariants.Primary}
+      onClick={() => router.push(continueUrl)}
+      data-testid="continue-button"
+    >
+      {t("successContinue")}
+    </Button>
   );
 }

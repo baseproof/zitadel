@@ -121,6 +121,10 @@ export async function loginWithSAMLAndSession({
             params.append("organization", selectedSession.factors?.user?.organizationId);
           }
           return { redirect: signedinUrl + "?" + params.toString() };
+        } else if (isClassifiedError(error) && error.code === Code.NotFound) {
+          // 01·F (baseproof/legal-agents#120): this instance never issued the
+          // request; one it finished answers AlreadyHandled, above.
+          return { redirect: "/link-expired" };
         } else {
           return { error: "Unknown error occurred" };
         }

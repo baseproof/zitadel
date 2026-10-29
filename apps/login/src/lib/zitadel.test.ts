@@ -1,5 +1,8 @@
+import { Code, ConnectError } from "@connectrpc/connect";
+import { ErrorDetailSchema } from "@zitadel/proto/zitadel/message_pb";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { startIdentityProviderFlow } from "./zitadel";
+import { ClassifiedConnectError } from "./grpc/interceptors/error-classification";
+import { isRejectedCode, startIdentityProviderFlow } from "./zitadel";
 
 vi.mock("./service", () => ({
   createServiceForHost: vi.fn(),
@@ -71,5 +74,29 @@ describe("startIdentityProviderFlow", () => {
 
     const value = startIdentityProviderIntent.mock.calls[0][0].content.value;
     expect(value).not.toHaveProperty("loginHint");
+  });
+});
+
+// Zitadel attaches each error's id as an ErrorDetail (internal/api/grpc/gerrors).
+describe("isRejectedCode", () => {
+  const zitadelError = (id: string, code: Code) =>
+    new ClassifiedConnectError(
+      new ConnectError(`message (${id})`, code, undefined, [{ desc: ErrorDetailSchema, value: { id, message: "message" } }]),
+    );
+
+  test.each([
+    ["CODE-woT0xc", Code.InvalidArgument],
+    ["CODE-QvUQ4P", Code.FailedPrecondition],
+    ["COMMAND-2M9fs", Code.FailedPrecondition],
+  ])("a reset code Zitadel refused (%s)", (id, code) => {
+    expect(isRejectedCode(zitadelError(id, code))).toBe(true);
+  });
+
+  test("a password the complexity policy refuses is not a code problem", () => {
+    expect(isRejectedCode(zitadelError("DOMAIN-HuJf6", Code.InvalidArgument))).toBe(false);
+  });
+
+  test("an error without Zitadel's detail is not a code problem", () => {
+    expect(isRejectedCode(new ClassifiedConnectError(new ConnectError("unavailable", Code.Unavailable)))).toBe(false);
   });
 });

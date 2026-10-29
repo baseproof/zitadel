@@ -56,21 +56,19 @@ export function SessionClearItem({ session, reload }: { session: Session; reload
             reload();
           }
         }}
-        className="group border-divider-light bg-background-light-400 dark:bg-background-dark-400 flex flex-row items-center rounded-md border px-4 py-2 transition-all hover:shadow-lg dark:hover:bg-white/10"
+        className="group flex w-full flex-row items-center gap-3 rounded-[8px] border border-[var(--bp-input-border)] px-[14px] py-[10px] text-left transition-colors hover:bg-[var(--bp-surface-hover)]"
       >
-        <div className="pr-4">
-          <Avatar
-            size="small"
-            loginName={session.factors?.user?.loginName as string}
-            name={session.factors?.user?.displayName ?? ""}
-          />
-        </div>
+        <Avatar
+          size="small"
+          loginName={session.factors?.user?.loginName as string}
+          name={session.factors?.user?.displayName ?? ""}
+        />
 
-        <div className="flex flex-col items-start overflow-hidden">
-          <span className="">{session.factors?.user?.displayName}</span>
-          <span className="text-xs text-ellipsis opacity-80">{session.factors?.user?.loginName}</span>
+        <div className="flex min-w-0 flex-col items-start">
+          <span className="max-w-full truncate text-[15px] font-medium">{session.factors?.user?.displayName}</span>
+          <span className="max-w-full truncate text-[13px] text-[var(--bp-muted)]">{session.factors?.user?.loginName}</span>
           {valid ? (
-            <span className="text-xs text-ellipsis opacity-80">
+            <span className="text-[13px] text-[var(--bp-muted)]">
               {verifiedAt && (
                 <Translated
                   i18nKey="verifiedAt"
@@ -81,25 +79,18 @@ export function SessionClearItem({ session, reload }: { session: Session; reload
             </span>
           ) : (
             verifiedAt && (
-              <span className="text-xs text-ellipsis opacity-80">
-                expired {session.expirationDate && moment(timestampDate(session.expirationDate)).fromNow()}
+              <span className="text-[13px] text-[var(--bp-muted)]">
+                <Translated i18nKey="expired" namespace="accounts" />{" "}
+                {session.expirationDate && moment(timestampDate(session.expirationDate)).fromNow()}
               </span>
             )
           )}
         </div>
 
         <span className="flex-grow"></span>
-        <div className="relative flex flex-row items-center">
-          <div className="text-warn-light-500 dark:text-warn-dark-500 mr-6 flex hidden items-center justify-center rounded-full bg-[#ff0000]/10 px-2 py-[2px] text-xs transition-all group-hover:block dark:bg-[#ff0000]/10">
-            <Translated i18nKey="clear" namespace="logout" />
-          </div>
-
-          {valid ? (
-            <div className="absolute right-0 mx-2 h-2 w-2 transform rounded-full bg-green-500 transition-all"></div>
-          ) : (
-            <div className="absolute right-0 mx-2 h-2 w-2 transform rounded-full bg-red-500 transition-all"></div>
-          )}
-        </div>
+        <span className="text-warn-light-500 dark:text-warn-dark-500 text-[14px] font-medium">
+          <Translated i18nKey="clear" namespace="logout" />
+        </span>
       </button>
       {error && <Alert>{error}</Alert>}
     </>

@@ -72,9 +72,9 @@ export function SignInWithIdp({
 
     const Component = components[type];
     const tileLabel = t(context === "signUp" ? "signUpWithName" : "signInWithName", { name });
-    // Generic providers (OAuth, OIDC, SAML, LDAP, JWT) carry no logo: the tile shows a mark by name.
+    // Generic providers (OAuth, OIDC, SAML, LDAP, JWT) carry no logo: the tile or row shows a mark by name.
     const genericTile =
-      iconOnly && Component === SignInWithGeneric ? (
+      Component === SignInWithGeneric ? (
         <>
           <IdpGlyph name={name} />
           <span>{name}</span>
@@ -94,7 +94,9 @@ export function SignInWithIdp({
             {genericTile}
           </Component>
         ) : (
-          <Component key={id} name={name} />
+          <Component key={id} name={name}>
+            {genericTile}
+          </Component>
         )}
       </form>
     ) : null;
@@ -123,16 +125,18 @@ export function SignInWithIdp({
   }
 
   return (
-    <div className="flex w-full flex-col space-y-2 text-sm">
+    <div className="flex w-full flex-col gap-2">
       {state?.samlData && <AutoSubmitForm url={state.samlData.url} fields={state.samlData.fields} />}
       {showLabel && (
-        <p className="ztdl-p text-center">
-          <Translated i18nKey="orSignInWith" namespace="idp" />
-        </p>
+        <div className="mb-3">
+          <Divider>
+            <Translated i18nKey="orSignInWith" namespace="idp" />
+          </Divider>
+        </div>
       )}
       {!!identityProviders?.length && identityProviders?.map(renderIDPButton)}
       {state?.error && (
-        <div className="py-4">
+        <div className="mt-3">
           <Alert>{state?.error}</Alert>
         </div>
       )}

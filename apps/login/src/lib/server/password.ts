@@ -10,6 +10,7 @@ import {
   getPasswordExpirySettings,
   getSession,
   getUserByID,
+  isRejectedCode,
   listAuthenticationMethodTypes,
   passwordReset,
   searchUsers,
@@ -511,7 +512,16 @@ export async function changePassword(command: { code?: string; userId: string; p
     }
   }
 
-  return setUserPassword({ serviceConfig, userId, password: command.password, code: command.code });
+  return setUserPassword({ serviceConfig, userId, password: command.password, code: command.code }).catch(
+    (error: unknown) => {
+      // The reset asks for its code again (baseproof/legal-agents#120): a wrong,
+      // expired or used code reads as 03·B.
+      if (isRejectedCode(error)) {
+        return { error: t("set.errors.codeRejected"), field: "code" as const };
+      }
+      throw error;
+    },
+  );
 }
 
 type CheckSessionAndSetPasswordCommand = {

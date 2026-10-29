@@ -1,8 +1,8 @@
 import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { LoginPasskey } from "@/components/login-passkey";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -44,6 +44,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     });
   }
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -51,27 +53,20 @@ export default async function Page(props: { searchParams: Promise<Record<string 
           <Translated i18nKey="verify.title" namespace="u2f" />
         </h1>
 
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="verify.description" namespace="u2f" />
         </p>
+      </div>
 
-        {sessionFactors && (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
-
+      <div className="flex w-full flex-col gap-5">
         {!(loginName || sessionId) && (
           <Alert>
             <Translated i18nKey="unknownContext" namespace="error" />
           </Alert>
         )}
-      </div>
 
-      <div className="w-full">
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
+
         {(loginName || sessionId) && (
           <LoginPasskey
             loginName={loginName}

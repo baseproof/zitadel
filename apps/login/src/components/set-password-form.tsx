@@ -14,6 +14,7 @@ import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
 import { Button, ButtonVariants } from "./button";
 import { CodeInput } from "./code-input";
+import { CHANGE_LINK_CLASSES, ValueChip } from "./email-chip";
 import { TextInput } from "./input";
 import { PasswordComplexity } from "./password-complexity";
 import { Spinner } from "./spinner";
@@ -49,7 +50,16 @@ export function SetPasswordForm({
   codeRequired,
 }: Props) {
   // Buttons stay enabled; the checks run when the user submits.
-  const { register, handleSubmit, watch, control, formState } = useForm<Inputs>({
+  const {
+    register,
+    handleSubmit,
+    watch,
+    control,
+    formState,
+    trigger,
+    setError: setFieldError,
+    resetField,
+  } = useForm<Inputs>({
     mode: "onSubmit",
     reValidateMode: "onChange",
     defaultValues: {
@@ -58,6 +68,12 @@ export function SetPasswordForm({
   });
 
   const t = useTranslations("password");
+
+  // A reset asks for its code first (baseproof/legal-agents#120); the new
+  // password's fields show once a code is entered. Zitadel checks the code
+  // only together with the new password (SetPassword), so a code it refuses
+  // brings this step back with 03·B's message.
+  const [step, setStep] = useState<"code" | "password">(codeRequired ? "code" : "password");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -111,6 +127,13 @@ export function SetPasswordForm({
 
     if (changeResponse && "error" in changeResponse) {
       setLoading(false);
+      if ("field" in changeResponse && changeResponse.field === "code") {
+        resetField("password");
+        resetField("confirmPassword");
+        setStep("code");
+        setFieldError("code", { type: "server", message: changeResponse.error });
+        return;
+      }
       setError(changeResponse.error);
       return;
     }
@@ -188,14 +211,84 @@ export function SetPasswordForm({
     passkeyParams.append("requestId", requestId);
   }
 
+  const errorBanner = error && (
+    <div className="mb-6">
+      <Alert title={error} />
+    </div>
+  );
+
+  if (step === "code") {
+    return (
+      <>
+        {errorBanner}
+        <form
+          className="flex w-full flex-col"
+          noValidate
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (await trigger("code")) {
+              setError("");
+              setStep("password");
+            }
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <Controller
+              control={control}
+              name="code"
+              rules={{
+                required: t("set.required.code"),
+                validate: (value: string) => value.length === 6 || t("set.errors.codeIncomplete"),
+              }}
+              render={({ field }) => (
+                <CodeInput
+                  ref={field.ref}
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  label={t("set.labels.code")}
+                  hint={t("set.codeHint")}
+                  error={errors.code?.message as string}
+                  autoFocus
+                />
+              )}
+            />
+            <div className="flex flex-row items-center gap-1.5 text-[14px]">
+              <span className="text-[var(--bp-subtle)]">
+                <Translated i18nKey="set.noCodeReceived" namespace="password" />
+              </span>
+              <button
+                disabled={loading}
+                type="button"
+                className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
+                onClick={() => {
+                  resendCode();
+                }}
+                data-testid="resend-button"
+              >
+                <Translated i18nKey="set.resend" namespace="password" />
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            className="mt-7 w-full"
+            variant={ButtonVariants.Primary}
+            disabled={loading}
+            data-testid="code-continue-button"
+          >
+            <Translated i18nKey="set.next" namespace="password" />
+          </Button>
+        </form>
+      </>
+    );
+  }
+
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      {error && (
-        <div className="mb-6">
-          <Alert title={error} />
-        </div>
-      )}
+      {errorBanner}
       <form className="flex w-full flex-col" noValidate onSubmit={handleSubmit(submitPassword)}>
         <input
           type="text"
@@ -209,49 +302,29 @@ export function SetPasswordForm({
         />
         <div className="flex flex-col gap-5">
           {codeRequired && (
-            <div className="flex flex-col gap-2">
-              <Controller
-                control={control}
-                name="code"
-                rules={{
-                  required: t("set.required.code"),
-                  validate: (value: string) => value.length === 6 || t("set.errors.codeIncomplete"),
-                }}
-                render={({ field }) => (
-                  <CodeInput
-                    ref={field.ref}
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    label={t("set.labels.code")}
-                    hint={t("set.codeHint")}
-                    error={errors.code?.message as string}
-                    autoFocus
-                  />
-                )}
-              />
-              <div className="flex flex-row items-center gap-1.5 text-[14px]">
-                <span className="text-[var(--bp-subtle)]">
-                  <Translated i18nKey="set.noCodeReceived" namespace="password" />
+            <ValueChip
+              label={<Translated i18nKey="set.labels.code" namespace="password" />}
+              value={
+                <span className="font-mono tracking-[0.15em]" data-testid="code-value">
+                  {watch("code")}
                 </span>
+              }
+              action={
                 <button
-                  disabled={loading}
                   type="button"
-                  className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
-                  onClick={() => {
-                    resendCode();
-                  }}
-                  data-testid="resend-button"
+                  className={CHANGE_LINK_CLASSES}
+                  onClick={() => setStep("code")}
+                  data-testid="change-code-button"
                 >
-                  <Translated i18nKey="set.resend" namespace="password" />
+                  <Translated i18nKey="change" namespace="common" />
                 </button>
-              </div>
-            </div>
+              }
+            />
           )}
           <TextInput
             type="password"
             autoComplete="new-password"
-            autoFocus={!codeRequired}
+            autoFocus
             {...register("password", {
               required: t("set.required.newPassword"),
               validate: passwordRule,

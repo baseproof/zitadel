@@ -10,12 +10,11 @@ import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
-import { Alert, AlertType } from "./alert";
+import { Controller, useForm } from "react-hook-form";
+import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
-import { TextInput } from "./input";
+import { CodeInput } from "./code-input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
 
@@ -46,8 +45,14 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
 
   const initialized = useRef(false);
 
-  const { register, handleSubmit, formState } = useForm<Inputs>({
-    mode: "onChange",
+  // The button stays enabled; the check runs when the user submits.
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Inputs>({
+    mode: "onSubmit",
+    reValidateMode: "onChange",
     defaultValues: {
       code: code ? code : "",
     },
@@ -212,64 +217,64 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
+      {error && (
+        <div data-testid="error">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+      <form className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(setCodeAndContinue)}>
+        <Controller
+          control={control}
+          name="code"
+          rules={{
+            required: t("verify.required.code"),
+            validate: (value: string) => value.length === 6 || t("verify.required.code"),
+          }}
+          render={({ field }) => (
+            <CodeInput
+              ref={field.ref}
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              label={t("verify.labels.code")}
+              error={errors.code?.message}
+              autoFocus
+            />
+          )}
+        />
+
         {["email", "sms"].includes(method) && (
-          <Alert type={AlertType.INFO}>
-            <div className="flex flex-row">
-              <span className="mr-auto flex-1 text-left">
-                <Translated i18nKey="verify.noCodeReceived" namespace="otp" />
-              </span>
-              <button
-                aria-label={t("verify.resendCode")}
-                disabled={loading}
-                type="button"
-                className="text-primary-light-500 hover:text-primary-light-400 dark:text-primary-dark-500 hover:dark:text-primary-dark-400 ml-4 cursor-pointer disabled:cursor-default disabled:text-gray-400 dark:disabled:text-gray-700"
-                onClick={async () => {
-                  setLoading(true);
-                  const response = await updateSessionForOTPChallenge();
-                  if (response?.error) {
-                    setError(response.error);
-                  }
-                  setLoading(false);
-                }}
-                data-testid="resend-button"
-              >
-                <Translated i18nKey="verify.resendCode" namespace="otp" />
-              </button>
-            </div>
-          </Alert>
-        )}
-        <div className="mt-4">
-          <TextInput
-            type="text"
-            autoFocus
-            {...register("code", { required: t("verify.required.code") })}
-            label={t("verify.labels.code")}
-            autoComplete="one-time-code"
-            data-testid="code-text-input"
-          />
-        </div>
-
-        {error && (
-          <div className="py-4" data-testid="error">
-            <Alert>{error}</Alert>
-          </div>
+          <p className="text-[14px] text-[var(--bp-muted)]">
+            <Translated i18nKey="verify.noCodeReceived" namespace="otp" />{" "}
+            <button
+              aria-label={t("verify.resendCode")}
+              disabled={loading}
+              type="button"
+              className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
+              onClick={async () => {
+                setLoading(true);
+                const response = await updateSessionForOTPChallenge();
+                if (response?.error) {
+                  setError(response.error);
+                }
+                setLoading(false);
+              }}
+              data-testid="resend-button"
+            >
+              <Translated i18nKey="verify.resendCode" namespace="otp" />
+            </button>
+          </p>
         )}
 
-        <div className="mt-8 flex w-full flex-row items-center">
-          <BackButton data-testid="back-button" />
-          <span className="flex-grow"></span>
-          <Button
-            type="submit"
-            className="self-end"
-            variant={ButtonVariants.Primary}
-            disabled={loading || !formState.isValid}
-            onClick={handleSubmit(setCodeAndContinue)}
-            data-testid="submit-button"
-          >
-            {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="verify.submit" namespace="otp" />
-          </Button>
-        </div>
+        <Button
+          type="submit"
+          className="w-full"
+          variant={ButtonVariants.Primary}
+          disabled={loading}
+          data-testid="submit-button"
+        >
+          {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="verify.submit" namespace="otp" />
+        </Button>
       </form>
     </>
   );

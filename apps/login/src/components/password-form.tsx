@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { Alert, AlertType } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
 import { Button, ButtonVariants } from "./button";
+import { EmailChip, loginNameHref } from "./email-chip";
 import { TextInput } from "./input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
@@ -63,21 +64,6 @@ export function PasswordForm({
   const [loading, setLoading] = useState<boolean>(false);
 
   const router = useRouter();
-
-  // Back to 01: "Change" keeps the email to edit, "Use a different email" clears it.
-  const toLoginName = (keepEmail: boolean) => {
-    const params = new URLSearchParams();
-    if (keepEmail) {
-      params.append("loginName", loginName);
-    }
-    if (organization) {
-      params.append("organization", organization);
-    }
-    if (requestId) {
-      params.append("requestId", requestId);
-    }
-    return "/loginname?" + params;
-  };
 
   async function submitPassword(values: Inputs) {
     setError("");
@@ -154,33 +140,12 @@ export function PasswordForm({
 
   const locked = error === t("errors.accountLocked");
 
-  const emailChip = (
-    <div className="flex flex-col gap-[6px] text-[14px]">
-      <span>
-        <Translated i18nKey="verify.labels.email" namespace="password" />
-      </span>
-      <div className="flex h-[44px] flex-row items-center justify-between gap-2 rounded-[8px] bg-[var(--bp-surface)] px-[14px] text-[15px]">
-        <span className="truncate" data-testid="login-name">
-          {loginName}
-        </span>
-        <button
-          type="button"
-          className="text-primary-light-500 dark:text-primary-dark-500 text-[14px] font-medium hover:underline"
-          onClick={() => router.push(toLoginName(true))}
-          data-testid="change-button"
-        >
-          <Translated i18nKey="verify.change" namespace="password" />
-        </button>
-      </div>
-    </div>
-  );
-
   const useDifferentEmail = (
     <Button
       type="button"
       className="w-full"
       variant={ButtonVariants.Secondary}
-      onClick={() => router.push(toLoginName(false))}
+      onClick={() => router.push(loginNameHref({ organization, requestId }))}
       data-testid="different-email-button"
     >
       <Translated i18nKey="verify.useDifferentEmail" namespace="password" />
@@ -242,7 +207,7 @@ export function PasswordForm({
         </div>
       )}
       <form className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(submitPassword)}>
-        {emailChip}
+        <EmailChip loginName={loginName} changeHref={loginNameHref({ loginName, organization, requestId })} />
         <TextInput
           type="password"
           autoComplete="current-password"

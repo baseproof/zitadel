@@ -5,7 +5,7 @@ import { handleServerActionResponse } from "@/lib/client-utils";
 import { UNKNOWN_USER_ID } from "@/lib/constants";
 import { resendVerification, sendVerification } from "@/lib/server/verify";
 import { useTranslations } from "next-intl";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { AutoSubmitForm } from "./auto-submit-form";
@@ -30,9 +30,6 @@ type Props = {
 
 export function VerifyForm({ userId, loginName, organization, requestId, code, isInvite, submit }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const codeSent = searchParams.get("codeSent") === "true";
 
   // Buttons stay enabled; the checks run when the user submits.
   const {
@@ -56,9 +53,12 @@ export function VerifyForm({ userId, loginName, organization, requestId, code, i
 
   const [loading, setLoading] = useState<boolean>(false);
 
-  // After a resend (03·D): the link waits this long before it offers another.
+  // After a resend (03·D): the notice, and the link waits this long before it
+  // offers another. The first arrival is 03, the link offered at once: the
+  // codeSent the server adds to the URL marks the first code too.
   const RESEND_WAIT_SECONDS = 45;
-  const [resendWait, setResendWait] = useState<number>(codeSent ? RESEND_WAIT_SECONDS : 0);
+  const [resent, setResent] = useState<boolean>(false);
+  const [resendWait, setResendWait] = useState<number>(0);
   useEffect(() => {
     if (resendWait <= 0) {
       return;
@@ -97,10 +97,7 @@ export function VerifyForm({ userId, loginName, organization, requestId, code, i
       return;
     }
 
-    // Signal success via URL search param so the "code sent" alert is shown
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("codeSent", "true");
-    router.replace(`${pathname}?${params.toString()}`);
+    setResent(true);
     setResendWait(RESEND_WAIT_SECONDS);
 
     return response;
@@ -150,7 +147,7 @@ export function VerifyForm({ userId, loginName, organization, requestId, code, i
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
       {/* 03·D: a new code is on its way, and Zitadel keeps only the latest one. */}
-      {codeSent && (
+      {resent && (
         <div className="mb-6">
           <Alert type={AlertType.INFO} title={t("verify.codeSent")}>
             {t("verify.codeSentHint")}

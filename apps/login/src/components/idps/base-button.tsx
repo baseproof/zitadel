@@ -1,6 +1,5 @@
 "use client";
 
-import { APPEARANCE_STYLES, getComponentRoundness, getThemeConfig } from "@/lib/theme";
 import { clsx } from "clsx";
 import { Loader2Icon } from "lucide-react";
 import { ButtonHTMLAttributes, DetailedHTMLProps, forwardRef } from "react";
@@ -22,18 +21,14 @@ export type SignInWithIdentityProviderProps = DetailedHTMLProps<
 const ICON_TILE =
   "h-[44px] w-full justify-center rounded-[8px] bg-[var(--bp-surface)] hover:bg-[var(--bp-surface-hover)] [&_span]:sr-only [&_.h-12]:h-6 [&_.w-12]:w-6 [&_.h-12]:p-0";
 
-// Helper function to get default IDP button appearance from centralized theme system
-function getDefaultIdpButtonAppearance(): string {
-  const themeConfig = getThemeConfig();
-  const appearance = APPEARANCE_STYLES[themeConfig.appearance];
-  return appearance?.["idp-button"] || "border border-divider-light dark:border-divider-dark"; // Fallback to basic border
-}
+// The row, in a list of providers: the same surface as the tile, the logo
+// at 20px, then the name.
+const LIST_ROW =
+  "h-[44px] w-full rounded-[8px] bg-[var(--bp-surface)] px-[14px] text-[15px] font-medium hover:bg-[var(--bp-surface-hover)] [&_.h-12]:h-5 [&_.w-12]:w-5 [&_.h-12]:p-0 [&_.ml-4]:ml-0";
 
 export const BaseButton = forwardRef<HTMLButtonElement, SignInWithIdentityProviderProps>(function BaseButton(props, ref) {
   const { iconOnly, ...buttonProps } = props;
   const formStatus = useFormStatus();
-  const buttonRoundness = getComponentRoundness("button");
-  const idpButtonAppearance = getDefaultIdpButtonAppearance();
 
   if (iconOnly) {
     return (
@@ -59,15 +54,12 @@ export const BaseButton = forwardRef<HTMLButtonElement, SignInWithIdentityProvid
       ref={ref}
       disabled={formStatus.pending}
       className={clsx(
-        `text-text-light-500 focus:border-primary-light-500 dark:text-text-dark-500 focus:dark:border-primary-dark-500 flex flex-1 cursor-pointer flex-row items-center px-4 text-sm transition-all outline-none hover:border-black hover:dark:border-white`,
-        buttonRoundness,
-        idpButtonAppearance,
-        `bg-background-light-400 dark:bg-background-dark-500`, // Keep background as fallback for non-glass themes
-        props.className,
+        "text-text-light-500 dark:text-text-dark-500 focus-visible:ring-primary-light-500 dark:focus-visible:ring-primary-dark-500 flex cursor-pointer flex-row items-center transition-colors outline-none focus-visible:ring-2",
+        LIST_ROW,
       )}
     >
       <div className="flex flex-1 items-center justify-between gap-4">
-        <div className="flex flex-1 flex-row items-center">{props.children}</div>
+        <div className="flex flex-1 flex-row items-center gap-3">{props.children}</div>
         {formStatus.pending && <Loader2Icon className="h-4 w-4 animate-spin" />}
       </div>
     </button>

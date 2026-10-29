@@ -34,7 +34,7 @@ vi.mock("next/headers", () => ({
 }));
 
 vi.mock("@/components/consent", () => ({ ConsentScreen: vi.fn(() => null) }));
-vi.mock("@/components/user-avatar", () => ({ UserAvatar: vi.fn(() => null) }));
+vi.mock("@/components/email-chip", () => ({ EmailChip: vi.fn(() => null) }));
 vi.mock("@/components/dynamic-theme", () => ({ DynamicTheme: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock("@/components/translated", () => ({ Translated: vi.fn(() => null) }));
 
@@ -92,7 +92,7 @@ describe("device consent page", () => {
 
   test("passes the displayed session to the consent screen", async () => {
     const { ConsentScreen } = await import("@/components/consent");
-    const { UserAvatar } = await import("@/components/user-avatar");
+    const { EmailChip } = await import("@/components/email-chip");
 
     render(
       await Page({
@@ -111,6 +111,6 @@ describe("device consent page", () => {
       undefined,
     );
     expect(ConsentScreen).toHaveBeenCalledWith(expect.not.objectContaining({ loginName: expect.anything() }), undefined);
-    expect(UserAvatar).toHaveBeenCalledWith(expect.objectContaining({ loginName: "user@example.com" }), undefined);
+    expect(EmailChip).toHaveBeenCalledWith(expect.objectContaining({ loginName: "user@example.com" }), undefined);
   });
 });

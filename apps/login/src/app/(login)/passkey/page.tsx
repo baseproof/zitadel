@@ -1,8 +1,8 @@
 import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { LoginPasskey } from "@/components/login-passkey";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
@@ -62,6 +62,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     organization: organization ?? sessionFactors?.factors?.user?.organizationId ?? defaultOrganization,
   });
 
+  const email = loginName ?? sessionFactors?.factors?.user?.loginName;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -69,28 +71,19 @@ export default async function Page(props: { searchParams: Promise<Record<string 
           <Translated i18nKey="verify.title" namespace="passkey" />
         </h1>
 
-        <p className="ztdl-p mb-6 block">
+        <p className="ztdl-p">
           <Translated i18nKey="verify.description" namespace="passkey" />
         </p>
-
-        {sessionFactors ? (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : loginName ? (
-          <UserAvatar loginName={loginName} displayName={loginName} showDropdown searchParams={searchParams}></UserAvatar>
-        ) : null}
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
         {!(loginName || sessionId) && (
           <Alert>
             <Translated i18nKey="unknownContext" namespace="error" />
           </Alert>
         )}
+
+        {email && <EmailChip loginName={email} changeHref={loginNameHref({ loginName: email, organization, requestId })} />}
 
         {(loginName || sessionId) && (
           <LoginPasskey

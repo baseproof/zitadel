@@ -5,10 +5,12 @@ import { ReactNode } from "react";
 import { BadgeState, StateBadge } from "./state-badge";
 import { Translated } from "./translated";
 
+// A row like the provider list's (baseproof/legal-agents#120): 44px, 8px
+// corners, the method's icon at 20px.
 const cardClasses = (alreadyAdded: boolean) =>
   clsx(
-    "relative bg-background-light-400 dark:bg-background-dark-400 group block space-y-1.5 rounded-md px-5 py-3  border border-divider-light dark:border-divider-dark transition-all ",
-    alreadyAdded ? "opacity-50 cursor-default" : "hover:shadow-lg hover:dark:bg-white/10",
+    "relative flex min-h-[44px] flex-col justify-center rounded-[8px] border border-[var(--bp-input-border)] px-[14px] py-[10px] text-[15px] transition-colors [&>div>svg]:mr-3 [&>div>svg]:h-5 [&>div>svg]:w-5 [&>div>svg]:translate-x-0",
+    alreadyAdded ? "cursor-default opacity-60" : "hover:bg-[var(--bp-surface-hover)]",
   );
 
 const LinkWrapper = ({ alreadyAdded, children, link }: { alreadyAdded: boolean; children: ReactNode; link: string }) => {
@@ -182,7 +184,7 @@ export const PASSWORD = (alreadyAdded: boolean, link: string) => {
 
 function Setup() {
   return (
-    <div className="absolute top-0 right-2 transform">
+    <div className="absolute top-1/2 right-3 -translate-y-1/2 transform">
       <StateBadge evenPadding={true} state={BadgeState.Success}>
         <CheckIcon className="h-4 w-4" />
       </StateBadge>

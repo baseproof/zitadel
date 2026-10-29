@@ -13,7 +13,7 @@ vi.mock("@/lib/grpc/interceptors/error-classification", () => ({
 }));
 
 vi.mock("@zitadel/client", () => ({
-  Code: { FailedPrecondition: 9 },
+  Code: { FailedPrecondition: 9, NotFound: 5 },
   ConnectError: class MockConnectError extends Error {
     code: number;
     constructor(msg: string, code: number) {
@@ -187,6 +187,24 @@ describe("loginWithOIDCAndSession", () => {
     });
 
     expect(result).toEqual({ error: "Unknown error occurred" });
+  });
+
+  it("should open the expired-link page when Zitadel never issued the request (01·F)", async () => {
+    vi.mocked(sessionModule.isSessionValid).mockResolvedValue(true);
+    vi.mocked(zitadelModule.createCallback).mockRejectedValue({
+      code: 5,
+      message: "Errors.AuthRequest.NotExisting",
+    });
+
+    const result = await loginWithOIDCAndSession({
+      serviceUrl: mockServiceUrl,
+      authRequest: mockAuthRequest,
+      sessionId: mockSessionId,
+      sessions: mockSessions,
+      sessionCookies: mockCookies,
+    });
+
+    expect(result).toEqual({ redirect: "/link-expired" });
   });
 
   it("should reject javascript: defaultRedirectUri in FailedPrecondition path (XSS prevention)", async () => {

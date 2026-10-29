@@ -1,5 +1,5 @@
 import { Alert, AlertType } from "@/components/alert";
-import { Button } from "@/components/button";
+import { ButtonColors, ButtonSizes, ButtonVariants, getButtonClasses } from "@/components/button";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { Translated } from "@/components/translated";
 import { getServiceConfig } from "@/lib/service-url";
@@ -34,25 +34,26 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col items-center space-y-4">
+      <div className="flex flex-col space-y-4">
         <h1>
           <Translated i18nKey="registrationFailed.title" namespace="idp" />
         </h1>
         <p className="ztdl-p">
           <Translated i18nKey="registrationFailed.description" namespace="idp" />
         </p>
+      </div>
 
-        <div className="w-full">
-          <Alert type={AlertType.ALERT}>
-            <Translated i18nKey="registrationFailed.info" namespace="idp" />
-          </Alert>
-        </div>
+      <div className="flex w-full flex-col gap-5">
+        <Alert type={AlertType.ALERT}>
+          <Translated i18nKey="registrationFailed.info" namespace="idp" />
+        </Alert>
 
         {postErrorRedirectUrl && (
-          <Link href={postErrorRedirectUrl}>
-            <Button className="bg-primary-light-500 hover:bg-primary-light-400 dark:bg-primary-dark-500 dark:hover:bg-primary-dark-400 w-full rounded-md px-4 py-3 text-center transition-all">
-              <Translated i18nKey="registrationFailed.backToLogin" namespace="idp" />
-            </Button>
+          <Link
+            href={postErrorRedirectUrl}
+            className={`${getButtonClasses(ButtonSizes.Small, ButtonVariants.Primary, ButtonColors.Primary)} w-full`}
+          >
+            <Translated i18nKey="registrationFailed.backToLogin" namespace="idp" />
           </Link>
         )}
       </div>

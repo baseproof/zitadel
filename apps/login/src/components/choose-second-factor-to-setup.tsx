@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Alert } from "./alert";
 import { EMAIL, SMS, TOTP, U2F } from "./auth-methods";
 import { AutoSubmitForm } from "./auto-submit-form";
+import { Button, ButtonVariants } from "./button";
 import { Translated } from "./translated";
 
 type Props = {
@@ -63,7 +64,12 @@ export function ChooseSecondFactorToSetup({
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <div className="grid w-full grid-cols-1 gap-5 pt-4">
+      {error && (
+        <div data-testid="error">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+      <div className="flex w-full flex-col gap-2">
         {loginSettings.secondFactors.map((factor) => {
           switch (factor) {
             case SecondFactorType.OTP:
@@ -82,8 +88,10 @@ export function ChooseSecondFactorToSetup({
         })}
       </div>
       {!force && (
-        <button
-          className="hover:text-primary-light-500 dark:hover:text-primary-dark-500 text-sm transition-all"
+        <Button
+          type="button"
+          className="w-full"
+          variant={ButtonVariants.Secondary}
           onClick={async () => {
             const skipResponse = await skipMFAAndContinueWithNextUrl({
               userId,
@@ -95,16 +103,10 @@ export function ChooseSecondFactorToSetup({
 
             handleServerActionResponse(skipResponse, router, setSamlData, setError);
           }}
-          type="button"
           data-testid="reset-button"
         >
           <Translated i18nKey="set.skip" namespace="mfa" />
-        </button>
-      )}
-      {error && (
-        <div className="py-4" data-testid="error">
-          <Alert>{error}</Alert>
-        </div>
+        </Button>
       )}
     </>
   );

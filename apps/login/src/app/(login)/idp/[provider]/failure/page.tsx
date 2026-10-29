@@ -1,8 +1,8 @@
 import { Alert, AlertType } from "@/components/alert";
 import { ChooseAuthenticatorToLogin } from "@/components/choose-authenticator-to-login";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getServiceConfig } from "@/lib/service-url";
 import {
   getBrandingSettings,
@@ -11,7 +11,7 @@ import {
   getUserByID,
   listAuthenticationMethodTypes,
 } from "@/lib/zitadel";
-import { HumanUser, User } from "@zitadel/proto/zitadel/user/v2/user_pb";
+import { User } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -50,7 +50,6 @@ export default async function Page(props: {
 
   let authMethods: AuthenticationMethodType[] = [];
   let user: User | undefined = undefined;
-  let human: HumanUser | undefined = undefined;
 
   const params = new URLSearchParams({});
   if (organization) {
@@ -64,9 +63,6 @@ export default async function Page(props: {
     const userResponse = await getUserByID({ serviceConfig, userId });
     if (userResponse) {
       user = userResponse.user;
-      if (user?.type.case === "human") {
-        human = user.type.value as HumanUser;
-      }
 
       if (user?.preferredLoginName) {
         params.set("loginName", user.preferredLoginName);
@@ -87,18 +83,17 @@ export default async function Page(props: {
         </h1>
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
         <Alert type={AlertType.ALERT}>
           <Translated i18nKey="loginError.description" namespace="idp" />
         </Alert>
 
-        {userId && authMethods.length && (
+        {userId && authMethods.length > 0 && (
           <>
-            {user && human && (
-              <UserAvatar
+            {user?.preferredLoginName && (
+              <EmailChip
                 loginName={user.preferredLoginName}
-                displayName={human?.profile?.displayName}
-                showDropdown={false}
+                changeHref={loginNameHref({ loginName: user.preferredLoginName, organization, requestId })}
               />
             )}
 

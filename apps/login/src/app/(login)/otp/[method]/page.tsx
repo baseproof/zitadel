@@ -1,8 +1,8 @@
 import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
+import { EmailChip, loginNameHref } from "@/components/email-chip";
 import { LoginOTP } from "@/components/login-otp";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getSessionCookieById } from "@/lib/cookies";
 import { getPublicHost } from "@/lib/server/host";
 import { getServiceConfig } from "@/lib/service-url";
@@ -67,6 +67,8 @@ export default async function Page(props: {
     organization: organization ?? session?.factors?.user?.organizationId,
   });
 
+  const email = session ? (loginName ?? session.factors?.user?.loginName) : undefined;
+
   return (
     <DynamicTheme branding={branding}>
       <div className="flex flex-col space-y-4">
@@ -88,27 +90,27 @@ export default async function Page(props: {
             <Translated i18nKey="verify.emailDescription" namespace="otp" />
           </p>
         )}
-
-        {!session && (
-          <div className="py-4">
-            <Alert>
-              {/* context was provided but the session could not be resolved (cookie missing, invalid or expired) */}
-              <Translated i18nKey={loginName || sessionId ? "sessionExpired" : "unknownContext"} namespace="error" />
-            </Alert>
-          </div>
-        )}
-
-        {session && (
-          <UserAvatar
-            loginName={loginName ?? session.factors?.user?.loginName}
-            displayName={session.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        )}
       </div>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col gap-5">
+        {!session && (
+          <Alert>
+            {/* context was provided but the session could not be resolved (cookie missing, invalid or expired) */}
+            <Translated i18nKey={loginName || sessionId ? "sessionExpired" : "unknownContext"} namespace="error" />
+          </Alert>
+        )}
+
+        {email && (
+          <EmailChip
+            loginName={email}
+            changeHref={loginNameHref({
+              loginName: email,
+              organization: organization ?? session?.factors?.user?.organizationId,
+              requestId,
+            })}
+          />
+        )}
+
         {method && session && (
           <LoginOTP
             loginName={loginName ?? session.factors?.user?.loginName}

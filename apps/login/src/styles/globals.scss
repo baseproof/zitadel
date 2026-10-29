@@ -54,10 +54,6 @@ html {
   --bp-error-border: rgba(229, 189, 184, 0.35);
 }
 
-.form-checkbox {
-  position: relative;
-}
-
 .form-checkbox:checked {
   background-image: none !important;
   background-color: var(--theme-light-primary-500);
@@ -67,24 +63,7 @@ html {
   background-color: var(--theme-dark-primary-500);
 }
 
-// The tick, inline: a root-relative url("/checkbox.svg") misses the login's
-// base path (/ui/v2/login) and answers 404, so a checked box showed no tick.
-.form-checkbox:checked::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  background-color: var(--theme-light-primary-contrast-500);
-}
-
-.dark .form-checkbox:checked::after {
-  background-color: var(--theme-dark-primary-contrast-500);
-}
+// The tick is an inline SVG beside the input (components/checkbox.tsx).
 
 .skeleton {
   --accents-2: var(--theme-light-background-400);
