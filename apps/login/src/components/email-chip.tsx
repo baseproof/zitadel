@@ -27,7 +27,7 @@ export function loginNameHref({
 }
 
 export const CHANGE_LINK_CLASSES =
-  "text-primary-light-500 dark:text-primary-dark-500 text-[14px] font-medium hover:underline";
+  "tap-target text-primary-light-500 dark:text-primary-dark-500 text-[14px] font-medium hover:underline";
 
 // A value the page carries, read-only, with an action beside it: 02a's email
 // row (baseproof/legal-agents#120), and the reset's code once it's entered.

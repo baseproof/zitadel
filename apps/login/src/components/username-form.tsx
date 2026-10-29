@@ -225,7 +225,7 @@ export function UsernameForm({
             <Translated i18nKey="registerPrompt" namespace="loginname" />
           </span>
           <button
-            className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
+            className="tap-target text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
             onClick={() => {
               const registerParams = new URLSearchParams();
               if (organization) {

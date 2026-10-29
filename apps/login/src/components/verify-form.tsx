@@ -207,7 +207,7 @@ export function VerifyForm({ userId, loginName, organization, requestId, code, i
               <button
                 disabled={loading}
                 type="button"
-                className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
+                className="tap-target text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
                 onClick={() => {
                   resendCode();
                 }}

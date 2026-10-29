@@ -250,7 +250,7 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
               aria-label={t("verify.resendCode")}
               disabled={loading}
               type="button"
-              className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
+              className="tap-target text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline disabled:cursor-default disabled:opacity-60"
               onClick={async () => {
                 setLoading(true);
                 const response = await updateSessionForOTPChallenge();

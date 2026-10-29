@@ -8,10 +8,21 @@ import {
   DARK_TEXT,
   DARK_WARN,
   PRIMARY,
-  setTheme,
   TEXT,
+  themeCss,
   WARN,
 } from "./colors";
+
+// themeCss renders as CSS what upstream's setTheme wrote onto
+// documentElement. These tests replay its declarations onto a document, so
+// upstream's checks of every property and value still hold.
+function setTheme(document: any, policy?: BrandingSettings) {
+  const css = themeCss(policy);
+  for (const declaration of css.slice(":root{".length, -1).split(";")) {
+    const at = declaration.indexOf(":");
+    document.documentElement.style.setProperty(declaration.slice(0, at), declaration.slice(at + 1));
+  }
+}
 
 describe("color utilities", () => {
   describe("computeMap", () => {
@@ -525,6 +536,13 @@ describe("color utilities", () => {
         const [, propertyValue] = call;
         expect(propertyValue).toMatch(/c7$/i);
       });
+    });
+
+    it("renders one :root rule of custom properties, nothing else", () => {
+      // a value is a hex color, or the dark contrast getContrast gives
+      expect(themeCss()).toMatch(
+        /^:root\{(--theme-[a-z]+-[a-z]+-[a-zA-Z0-9-]+:(#[0-9a-f]{6,8}|hsla\(0, 0%, 0%, 0\.87\));?)+\}$/,
+      );
     });
 
     it("should call setProperty exactly once per CSS variable", () => {
