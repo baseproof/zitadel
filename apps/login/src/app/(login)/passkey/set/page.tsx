@@ -1,13 +1,12 @@
-import { Alert, AlertType } from "@/components/alert";
+import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { RegisterPasskey } from "@/components/register-passkey";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { getServiceConfig } from "@/lib/service-url";
 import { loadMostRecentSession } from "@/lib/session";
 import { getBrandingSettings, getUserByID } from "@/lib/zitadel";
 import { Session } from "@zitadel/proto/zitadel/session/v2/session_pb";
-import { HumanUser, User } from "@zitadel/proto/zitadel/user/v2/user_pb";
+import { User } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
@@ -40,58 +39,34 @@ export default async function Page(props: { searchParams: Promise<Record<string 
   const branding = await getBrandingSettings({ serviceConfig, organization });
 
   let user: User | undefined;
-  let displayName: string | undefined;
   if (userId) {
     const userResponse = await getUserByID({ serviceConfig, userId });
     user = userResponse.user;
+  }
 
-    if (user?.type.case === "human") {
-      displayName = (user.type.value as HumanUser).profile?.displayName;
-    }
+  // 02c's "Use password instead": a first password for the account this
+  // sign-up just made (/password/set without a code, the "initial" flow).
+  const resolvedLoginName = loginName ?? session?.factors?.user?.loginName ?? user?.preferredLoginName;
+  const usePasswordParams = new URLSearchParams({ initial: "true" });
+  if (resolvedLoginName) {
+    usePasswordParams.set("loginName", resolvedLoginName);
+  }
+  if (organization) {
+    usePasswordParams.set("organization", organization);
+  }
+  if (requestId) {
+    usePasswordParams.set("requestId", requestId);
   }
 
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col">
         <h1>
           <Translated i18nKey="set.title" namespace="passkey" />
         </h1>
-
-        <p className="ztdl-p mb-6 block">
-          <Translated i18nKey="set.description" namespace="passkey" />
-        </p>
-
-        {session ? (
-          <UserAvatar
-            loginName={loginName ?? session.factors?.user?.loginName}
-            displayName={session.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : user ? (
-          <UserAvatar
-            loginName={user?.preferredLoginName}
-            displayName={displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : null}
       </div>
 
       <div className="w-full">
-        <Alert type={AlertType.INFO}>
-          <span>
-            <Translated i18nKey="set.info.description" namespace="passkey" />
-            <a
-              className="text-primary-light-500 hover:text-primary-light-300 dark:text-primary-dark-500 hover:dark:text-primary-dark-300"
-              target="_blank"
-              href="https://zitadel.com/docs/guides/manage/user/reg-create-user#with-passwordless"
-            >
-              <Translated i18nKey="set.info.link" namespace="passkey" />
-            </a>
-          </span>
-        </Alert>
-
         {!session && !user && (
           <div className="py-4">
             <Alert>
@@ -110,7 +85,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             requestId={requestId}
             code={code}
             codeId={codeId}
-            loginName={loginName ?? session?.factors?.user?.loginName ?? user?.preferredLoginName}
+            loginName={resolvedLoginName}
+            usePasswordHref={!prompt ? "/password/set?" + usePasswordParams : undefined}
           />
         )}
       </div>

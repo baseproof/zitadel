@@ -87,15 +87,18 @@ export async function checkMFAFactors(
 
     // TODO: provide a way to setup passkeys on mfa page?
     return { redirect: `/mfa/set?` + params };
-    /* eslint-disable no-dupe-else-if -- TODO: this branch is unreachable, conditions overlap with the previous branch */
   } else if (
+    // The optional, skippable prompt to add a second factor, once per
+    // mfaInitSkipLifetime, for password sign-ins only (baseproof/legal-agents#120).
+    // Upstream also required shouldEnforceMFA here, which the branch above
+    // already handles, so the prompt could never show. A provider (SSO)
+    // sign-in is not asked; a passkey sign-in returned above.
     loginSettings?.mfaInitSkipLifetime &&
     (loginSettings.mfaInitSkipLifetime.nanos > 0 || loginSettings.mfaInitSkipLifetime.seconds > 0) &&
     !availableMultiFactors.length &&
     session?.factors?.user?.id &&
-    shouldEnforceMFA(session, loginSettings)
+    !session.factors?.intent?.verifiedAt
   ) {
-    /* eslint-enable no-dupe-else-if */
     const userResponse = await getUserByID({ serviceConfig, userId: session.factors?.user?.id });
 
     const humanUser = userResponse?.user?.type.case === "human" ? userResponse?.user.type.value : undefined;

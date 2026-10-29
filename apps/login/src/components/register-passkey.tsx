@@ -2,11 +2,12 @@
 
 import { coerceToArrayBuffer, coerceToBase64Url } from "@/helpers/base64";
 import { registerPasskeyLink, verifyPasskeyRegistration } from "@/lib/server/passkeys";
+import { DevicePhoneMobileIcon, FingerPrintIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Alert } from "./alert";
-import { BackButton } from "./back-button";
 import { Button, ButtonVariants } from "./button";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
@@ -22,6 +23,8 @@ type Props = {
   code?: string;
   codeId?: string;
   loginName?: string;
+  // Where "Use password instead" goes (02d): a first password for this new account.
+  usePasswordHref?: string;
 };
 
 export function RegisterPasskey({
@@ -33,16 +36,27 @@ export function RegisterPasskey({
   code,
   codeId,
   loginName: initialLoginName,
+  usePasswordHref,
 }: Props) {
-  const { handleSubmit, formState } = useForm<Inputs>({
-    mode: "onChange",
+  const { handleSubmit } = useForm<Inputs>({
+    mode: "onSubmit",
   });
 
   const [error, setError] = useState<string>("");
+  const [cancelled, setCancelled] = useState<boolean>(false);
+  // This browser has no WebAuthn at all (02c·B): offer the password only.
+  const [unsupported, setUnsupported] = useState<boolean>(false);
+  const [host, setHost] = useState<string>("");
 
   const [loading, setLoading] = useState<boolean>(false);
 
   const router = useRouter();
+  const t = useTranslations("passkey");
+
+  useEffect(() => {
+    setUnsupported(typeof window.PublicKeyCredential === "undefined");
+    setHost(window.location.hostname);
+  }, []);
 
   const continueAndLogin = useCallback(
     (loginName?: string) => {
@@ -100,6 +114,8 @@ export function RegisterPasskey({
   }
 
   const submitRegisterAndContinue = useCallback(async (): Promise<boolean | void> => {
+    setCancelled(false);
+    setError("");
     // Require either sessionId or userId
     if (!sessionId && !userId) {
       setError("Missing session or user information");
@@ -161,7 +177,15 @@ export function RegisterPasskey({
       });
     }
 
-    const credentials = await navigator.credentials.create(options);
+    // The browser's prompt: a cancel or a timeout rejects (02c·A), which
+    // leaves the user free to try again or use a password instead.
+    let credentials: Credential | null;
+    try {
+      credentials = await navigator.credentials.create(options);
+    } catch {
+      setCancelled(true);
+      return;
+    }
 
     if (
       !credentials ||
@@ -204,18 +228,77 @@ export function RegisterPasskey({
     }
   }, [code, submitRegisterAndContinue]);
 
+  const benefits = [
+    { Icon: FingerPrintIcon, key: "noPassword" },
+    { Icon: DevicePhoneMobileIcon, key: "devices" },
+    { Icon: ShieldCheckIcon, key: "phishing" },
+  ] as const;
+
+  const usePassword = usePasswordHref && (
+    <Button
+      type="button"
+      className="w-full"
+      variant={unsupported ? ButtonVariants.Primary : ButtonVariants.Secondary}
+      onClick={() => router.push(usePasswordHref)}
+      data-testid="use-password-button"
+    >
+      <Translated i18nKey={unsupported ? "set.usePasswordShort" : "set.usePassword"} namespace="passkey" />
+    </Button>
+  );
+
   return (
-    <form className="w-full">
+    <form className="flex w-full flex-col" onSubmit={handleSubmit(submitRegisterAndContinue)}>
+      {unsupported && (
+        <div className="mb-6">
+          <Alert title={t("set.unsupported.title")}>{t("set.unsupported.description")}</Alert>
+        </div>
+      )}
+      {!unsupported && cancelled && (
+        <div className="mb-6">
+          <Alert title={t("set.cancelled.title")}>{t("set.cancelled.description")}</Alert>
+        </div>
+      )}
       {error && (
-        <div className="py-4">
-          <Alert>{error}</Alert>
+        <div className="mb-6">
+          <Alert title={error} />
         </div>
       )}
 
-      <div className="mt-8 flex w-full flex-row items-center">
+      {!isPrompt && !unsupported && !cancelled && (
+        <ul className="flex flex-col gap-4" data-testid="passkey-benefits">
+          {benefits.map(({ Icon, key }) => (
+            <li key={key} className="flex flex-row items-start gap-[14px]">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[8px] bg-[var(--bp-tile)]">
+                <Icon className="text-primary-light-500 dark:text-primary-dark-500 h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="flex flex-col gap-[2px]">
+                <span className="text-[15px] font-semibold">{t(`set.benefits.${key}.title`)}</span>
+                <span className="text-[14px] leading-[1.45] text-[var(--bp-subtle)]">
+                  {t(`set.benefits.${key}.description`, { host })}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-7 flex flex-col gap-2">
+        {!unsupported && (
+          <Button
+            type="submit"
+            className="w-full"
+            variant={ButtonVariants.Primary}
+            disabled={loading}
+            data-testid="submit-button"
+          >
+            {loading && <Spinner className="mr-2 h-5 w-5" />}
+            <Translated i18nKey={cancelled ? "set.tryAgain" : "set.submit"} namespace="passkey" />
+          </Button>
+        )}
         {isPrompt ? (
           <Button
             type="button"
+            className="w-full"
             variant={ButtonVariants.Secondary}
             onClick={() => {
               continueAndLogin();
@@ -224,20 +307,8 @@ export function RegisterPasskey({
             <Translated i18nKey="set.skip" namespace="passkey" />
           </Button>
         ) : (
-          <BackButton />
+          usePassword
         )}
-
-        <span className="flex-grow"></span>
-        <Button
-          type="submit"
-          className="self-end"
-          variant={ButtonVariants.Primary}
-          disabled={loading || !formState.isValid}
-          onClick={handleSubmit(submitRegisterAndContinue)}
-          data-testid="submit-button"
-        >
-          {loading && <Spinner className="mr-2 h-5 w-5" />} <Translated i18nKey="set.submit" namespace="passkey" />
-        </Button>
       </div>
     </form>
   );

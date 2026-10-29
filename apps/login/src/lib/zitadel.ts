@@ -98,9 +98,13 @@ export async function getHostedLoginTranslation({
   serviceConfig,
   organization,
   locale,
+  ignoreInheritance = false,
 }: WithServiceConfig<{
   organization?: string;
   locale?: string;
+  // Only this level's own texts, without what it inherits (the instance's,
+  // and Zitadel's built-in defaults).
+  ignoreInheritance?: boolean;
 }>) {
   const fetcher = async () => {
     const settingsService: Client<typeof SettingsService> = await createServiceForHost(SettingsService, serviceConfig);
@@ -118,6 +122,7 @@ export async function getHostedLoginTranslation({
                 value: true,
               },
           locale: locale,
+          ignoreInheritance,
         },
         {},
       )
@@ -127,7 +132,10 @@ export async function getHostedLoginTranslation({
   };
 
   return freshCache(
-    instanceCacheKey(serviceConfig, `getHostedLoginTranslation-${organization || "instance"}-${locale || "default"}`),
+    instanceCacheKey(
+      serviceConfig,
+      `getHostedLoginTranslation-${organization || "instance"}-${locale || "default"}-${ignoreInheritance ? "own" : "inherited"}`,
+    ),
     fetcher,
     getTTLForKey("getHostedLoginTranslation", longCacheTTL),
   );

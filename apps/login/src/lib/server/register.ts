@@ -79,6 +79,9 @@ export async function registerUser(
     return { error: t("errors.localAuthenticationNotAllowed") };
   }
 
+  // The username is the email (addHumanUser), so Zitadel refuses a second
+  // account for an email that already has one (baseproof/legal-agents#120, 02b·B).
+  let alreadyExists = false;
   const addResponse = await addHumanUser({
     serviceConfig,
     email: command.email,
@@ -88,11 +91,12 @@ export async function registerUser(
     organization: command.organization,
   }).catch((error) => {
     logger.error("Failed to create user", { error });
+    alreadyExists = error instanceof ConnectError && error.code === Code.AlreadyExists;
     return null;
   });
 
   if (!addResponse) {
-    return { error: t("errors.couldNotCreateUser") };
+    return { error: t(alreadyExists ? "errors.userAlreadyExists" : "errors.couldNotCreateUser") };
   }
 
   let checkPayload: any = {

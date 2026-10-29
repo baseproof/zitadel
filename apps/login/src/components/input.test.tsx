@@ -31,9 +31,12 @@ describe("TextInput Component", () => {
       expect(input?.defaultValue).toBe("John Doe");
     });
 
-    it("should show required indicator when required", () => {
-      render(<TextInput label="Required Field" required />);
-      expect(screen.getByText(/\*/)).toBeTruthy();
+    // Baseproof's fields mark nothing as required in the label; the input
+    // carries `required` and the form's checks say what is missing.
+    it("should mark the input required without an asterisk", () => {
+      const { container } = render(<TextInput label="Required Field" required />);
+      expect(container.querySelector("input")?.required).toBe(true);
+      expect(screen.queryByText(/\*/)).toBeNull();
     });
   });
 
@@ -168,11 +171,12 @@ describe("TextInput Component", () => {
       expect(label).toBeTruthy();
     });
 
-    it("should have default label styling", () => {
+    it("should tie the label to the input", () => {
       const { container } = render(<TextInput label="Normal Field" />);
       const label = container.querySelector("label");
+      const input = container.querySelector("input");
       expect(label).toBeTruthy();
-      expect(label?.className).toBeTruthy();
+      expect(label?.htmlFor).toBe(input?.id);
     });
   });
 
@@ -185,10 +189,12 @@ describe("TextInput Component", () => {
       expect(input).toBeTruthy();
     });
 
-    it("should show required indicator", () => {
-      const { container } = render(<TextInput label="UniqueRequiredField" required />);
-      const label = container.querySelector("label");
-      expect(label?.textContent).toContain("*");
+    it("should tie an error to its field for screen readers", () => {
+      const { container } = render(<TextInput label="UniqueRequiredField" required error="Enter your email address." />);
+      const input = container.querySelector("input");
+      expect(input?.getAttribute("aria-invalid")).toBe("true");
+      const describedBy = input?.getAttribute("aria-describedby");
+      expect(describedBy && container.querySelector(`[id="${describedBy}"]`)?.textContent).toBe("Enter your email address.");
     });
   });
 });

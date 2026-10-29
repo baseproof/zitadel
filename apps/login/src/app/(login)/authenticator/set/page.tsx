@@ -18,6 +18,7 @@ import {
   listAuthenticationMethodTypes,
 } from "@/lib/zitadel";
 import { Session } from "@zitadel/proto/zitadel/session/v2/session_pb";
+import { PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 // import { getLocale } from "next-intl/server";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -143,6 +144,14 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   if (requestId) {
     params.set("requestId", requestId);
+  }
+
+  // An account with no way to sign in yet (it left 02c before choosing one)
+  // gets the same offer as a new account: passwordless first, a password
+  // through "Use password instead" (baseproof/legal-agents#120).
+  if (loginSettings?.passkeysType === PasskeysType.ALLOWED && loginSettings?.allowLocalAuthentication) {
+    params.delete("initial");
+    redirect(`/passkey/set?` + params);
   }
 
   return (

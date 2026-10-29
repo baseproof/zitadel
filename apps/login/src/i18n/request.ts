@@ -52,22 +52,30 @@ export default getRequestConfig(async () => {
 
   const i18nOrganization = _headers.get("x-zitadel-i18n-organization") || ""; // You may need to set this header in middleware
 
-  let translations: JsonObject | Record<string, never> = {};
-  try {
-    const i18nJSON = await getHostedLoginTranslation({
-      serviceConfig,
-      locale,
-      organization: i18nOrganization,
-    });
+  // Only the texts the instance and the organization set themselves: Zitadel's
+  // built-in defaults would otherwise replace this login's own (locales/*.json,
+  // Baseproof's wording; baseproof/legal-agents#120). The organization's
+  // texts win over the instance's.
+  const levels: (string | undefined)[] = i18nOrganization ? [undefined, i18nOrganization] : [undefined];
+  const customTranslations: JsonObject[] = [];
+  for (const organization of levels) {
+    try {
+      const i18nJSON = await getHostedLoginTranslation({
+        serviceConfig,
+        locale,
+        organization,
+        ignoreInheritance: true,
+      });
 
-    if (i18nJSON) {
-      translations = i18nJSON;
+      if (i18nJSON) {
+        customTranslations.push(i18nJSON);
+      }
+    } catch (error) {
+      console.warn("Error fetching custom translations:", error);
     }
-  } catch (error) {
-    console.warn("Error fetching custom translations:", error);
   }
 
-  const customMessages = translations;
+  const customMessages = deepmerge.all([{}, ...customTranslations]) as JsonObject;
 
   // Load locale messages, fall back to default language messages if locale not found
   let localeMessages;

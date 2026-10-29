@@ -88,7 +88,8 @@ export function DynamicTheme({
               </div>
             );
           })()
-        : // Traditional top-to-bottom layout - center title/description, left-align forms
+        : // Baseproof's card (baseproof/legal-agents#120): the wordmark, then
+          // the title and its line, then the form, all left-aligned.
           (() => {
             const childArray = Children.toArray(actualChildren);
             const titleContent = childArray[0] || null;
@@ -96,36 +97,31 @@ export function DynamicTheme({
             const hasMultipleChildren = childArray.length > 1;
 
             return (
-              <div className="relative mx-auto w-full max-w-[440px] px-4 py-4">
-                <Card>
-                  <div className="mx-auto flex flex-col items-center space-y-8">
-                    <div className="relative flex flex-row items-center justify-center">
-                      {branding && (
-                        <Logo
-                          lightSrc={branding.lightTheme?.logoUrl}
-                          darkSrc={branding.darkTheme?.logoUrl}
-                          height={150}
-                          width={150}
-                        />
-                      )}
+              <div className="relative mx-auto w-full max-w-[440px] px-4 py-4 sm:px-0">
+                <div className="text-text-light-500 dark:text-text-dark-500 flex flex-col rounded-[16px] border border-[var(--bp-card-border)] bg-[var(--bp-card)] px-6 pt-8 pb-7 sm:px-10 sm:pt-10 sm:pb-9">
+                  {branding && (
+                    <div className="mb-7 flex">
+                      <Logo
+                        lightSrc={branding.lightTheme?.logoUrl}
+                        darkSrc={branding.darkTheme?.logoUrl}
+                        height={28}
+                        width={94.5}
+                      />
                     </div>
+                  )}
 
-                    {hasMultipleChildren ? (
-                      <>
-                        {/* Title and description - center aligned */}
-                        <div className="mb-4 flex w-full flex-col items-center text-center">{titleContent}</div>
-
-                        {/* Form content - left aligned */}
-                        <div className="w-full">{formContent}</div>
-                      </>
-                    ) : (
-                      // Single child - use original behavior
-                      <div className="w-full">{actualChildren}</div>
-                    )}
-
-                    <div className="flex flex-row justify-between"></div>
-                  </div>
-                </Card>
+                  {hasMultipleChildren ? (
+                    <>
+                      {/* the title and its line sit 4px apart on every page, whatever spacing the page gives them */}
+                      <div className="flex w-full flex-col items-start gap-1 text-left [&>div]:space-y-1">
+                        {titleContent}
+                      </div>
+                      <div className="mt-7 w-full">{formContent}</div>
+                    </>
+                  ) : (
+                    <div className="w-full">{actualChildren}</div>
+                  )}
+                </div>
               </div>
             );
           })()}

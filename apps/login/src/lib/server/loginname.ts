@@ -36,7 +36,25 @@ export type SendLoginnameCommand = {
   organization?: string;
   defaultOrganization?: string;
   suffix?: string;
+  // "passkey": the user pressed "Passwordless sign-in" rather than "Continue with email".
+  method?: "passkey";
 };
+
+// Query parameters for /password that tell it what to show instead of a plain
+// password field (baseproof/legal-agents#120): an administrator reset the
+// password (02a·F, the old one no longer works, so none is asked for), or
+// "Passwordless sign-in" found no passkey on the account (02a·E).
+function passwordPageNotice(
+  params: URLSearchParams,
+  humanUser: { passwordChangeRequired?: boolean } | undefined,
+  method: SendLoginnameCommand["method"],
+) {
+  if (humanUser?.passwordChangeRequired) {
+    params.append("reset", "required");
+  } else if (method === "passkey") {
+    params.append("notice", "noPasskey");
+  }
+}
 
 const ORG_SUFFIX_REGEX = /(?<=@)(.+)/;
 
@@ -428,6 +446,8 @@ export async function sendLoginname(command: SendLoginnameCommand) {
               paramsPassword.append("requestId", command.requestId);
             }
 
+            passwordPageNotice(paramsPassword, humanUser, command.method);
+
             return {
               redirect: "/password?" + paramsPassword,
             };
@@ -515,6 +535,8 @@ export async function sendLoginname(command: SendLoginnameCommand) {
           paramsPasswordDefault.append("organization", organization);
         }
 
+        passwordPageNotice(paramsPasswordDefault, humanUser, command.method);
+
         return {
           redirect: "/password?" + paramsPasswordDefault,
         };
@@ -595,10 +617,13 @@ export async function sendLoginname(command: SendLoginnameCommand) {
 
   if (effectiveLoginSettings?.allowRegister && effectiveLoginSettings?.allowLocalAuthentication) {
     logger.debug("register and password both allowed");
+    // A new email opens sign-up (02b) in the organization that holds its
+    // domain, else in the default organization (baseproof/legal-agents#120).
+    const registerOrganization = discoveredOrganization ?? command.defaultOrganization;
     // do not register user if ignoreUnknownUsernames is set
-    if (discoveredOrganization && !effectiveLoginSettings?.ignoreUnknownUsernames) {
-      logger.debug("Redirecting to registration page", { organization: discoveredOrganization });
-      const params = new URLSearchParams({ organization: discoveredOrganization });
+    if (registerOrganization && !effectiveLoginSettings?.ignoreUnknownUsernames) {
+      logger.debug("Redirecting to registration page", { organization: registerOrganization });
+      const params = new URLSearchParams({ organization: registerOrganization });
 
       if (command.requestId) {
         params.set("requestId", command.requestId);
@@ -615,6 +640,12 @@ export async function sendLoginname(command: SendLoginnameCommand) {
         ignoreUnknownUsernames: effectiveLoginSettings?.ignoreUnknownUsernames,
       });
     }
+  }
+
+  // The organization that holds this email's domain signs people up by
+  // invitation only: say so, rather than "not found".
+  if (discoveredOrganization && !ignoreUnknownUsernames && !effectiveLoginSettings?.allowRegister) {
+    return { error: t("errors.registerByInvitation") };
   }
 
   return preventUserEnumeration(discoveredOrganization);

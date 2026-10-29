@@ -12,7 +12,15 @@ export type SignInWithIdentityProviderProps = DetailedHTMLProps<
 > & {
   name?: string;
   e2e?: string;
+  // A tile in a row of providers: the logo only, the name kept for screen
+  // readers (and in the button's title).
+  iconOnly?: boolean;
 };
+
+// The tile: every provider component puts its logo in a 48px box and its
+// name in a span; the tile shrinks the box and keeps the span for screen readers.
+const ICON_TILE =
+  "h-[44px] w-full justify-center rounded-[8px] bg-[var(--bp-surface)] hover:bg-[var(--bp-surface-hover)] [&_span]:sr-only [&_.h-12]:h-6 [&_.w-12]:w-6 [&_.h-12]:p-0";
 
 // Helper function to get default IDP button appearance from centralized theme system
 function getDefaultIdpButtonAppearance(): string {
@@ -22,13 +30,31 @@ function getDefaultIdpButtonAppearance(): string {
 }
 
 export const BaseButton = forwardRef<HTMLButtonElement, SignInWithIdentityProviderProps>(function BaseButton(props, ref) {
+  const { iconOnly, ...buttonProps } = props;
   const formStatus = useFormStatus();
   const buttonRoundness = getComponentRoundness("button");
   const idpButtonAppearance = getDefaultIdpButtonAppearance();
 
+  if (iconOnly) {
+    return (
+      <button
+        {...buttonProps}
+        type="submit"
+        ref={ref}
+        disabled={formStatus.pending}
+        className={clsx(
+          "text-text-light-500 dark:text-text-dark-500 focus-visible:ring-primary-light-500 dark:focus-visible:ring-primary-dark-500 flex cursor-pointer flex-row items-center transition-colors outline-none focus-visible:ring-2",
+          ICON_TILE,
+        )}
+      >
+        {formStatus.pending ? <Loader2Icon className="h-5 w-5 animate-spin" /> : buttonProps.children}
+      </button>
+    );
+  }
+
   return (
     <button
-      {...props}
+      {...buttonProps}
       type="submit"
       ref={ref}
       disabled={formStatus.pending}

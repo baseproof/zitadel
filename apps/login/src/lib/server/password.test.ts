@@ -407,9 +407,29 @@ describe("sendPassword", () => {
       checks: { password: { password: "wrong" } } as any,
     });
 
+    // A wrong password with attempts left is an error under the password field (02a·A).
     expect(result).toEqual({
-      error: "errors.failedToAuthenticate",
+      error: "errors.wrongPasswordAttemptsLeft",
+      field: "password",
     });
+  });
+
+  test("should report a locked account once Zitadel's count reaches the lockout limit", async () => {
+    mockGetSessionCookieByLoginName.mockResolvedValue(null);
+    mockSearchUsers.mockResolvedValue({
+      result: [{ userId: "user123", type: { case: "human", value: {} }, state: 1 }],
+    });
+    mockGetLoginSettings.mockResolvedValue({ ignoreUnknownUsernames: false, allowLocalAuthentication: true });
+    mockCreateSessionAndUpdateCookie.mockRejectedValue({ failedAttempts: 5 });
+    mockGetLockoutSettings.mockResolvedValue({ maxPasswordAttempts: BigInt(5) });
+
+    const result = await sendPassword({
+      loginName: "user@example.com",
+      checks: { password: { password: "wrong" } } as any,
+    });
+
+    // A banner, not a field error: only an administrator unlocks the account (02a·B).
+    expect(result).toEqual({ error: "errors.accountLocked" });
   });
 
   test("should recreate session when session verification fails with keys/session terminated error and ignoreUnknownUsernames is true", async () => {

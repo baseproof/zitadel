@@ -16,6 +16,7 @@ import { Organization } from "@zitadel/proto/zitadel/org/v2/org_pb";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
+import Link from "next/link";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("register");
@@ -114,14 +115,29 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         )}
 
         {loginSettings?.allowExternalIdp && !!identityProviders.length && (
-          <>
+          <div className="mt-5">
             <SignInWithIdp
               identityProviders={identityProviders}
               requestId={requestId}
               organization={organization}
+              layout="icons"
+              context="signUp"
             ></SignInWithIdp>
-          </>
+          </div>
         )}
+
+        <div className="mt-7 flex flex-row flex-wrap items-center gap-1.5 text-[14px]">
+          <span className="text-[var(--bp-subtle)]">
+            <Translated i18nKey="haveAccount" namespace="register" />
+          </span>
+          <Link
+            href={"/loginname?" + new URLSearchParams(requestId ? { requestId } : {})}
+            className="text-primary-light-500 dark:text-primary-dark-500 font-medium hover:underline"
+            data-testid="login-link"
+          >
+            <Translated i18nKey="logIn" namespace="register" />
+          </Link>
+        </div>
       </div>
     </DynamicTheme>
   );

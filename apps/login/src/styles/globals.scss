@@ -3,19 +3,55 @@
 @config "../../tailwind.config.mjs";
 
 @layer base {
+  // Baseproof's login (baseproof/legal-agents#120): titles and their lines
+  // read left-aligned on the card.
   h1,
   .ztdl-h1 {
-    @apply text-center text-2xl;
+    @apply text-left text-[26px] leading-[1.2] font-semibold tracking-[-0.015em];
   }
 
   .ztdl-p {
-    @apply text-text-light-secondary-500 dark:text-text-dark-secondary-500 text-sm;
+    @apply text-left text-[15px] text-[var(--bp-muted)];
   }
 }
 
 html {
   --background-color: #ffffff;
   --dark-background-color: #000000;
+}
+
+// The design's neutrals. Primary, warn, text and the page background still
+// come from Zitadel's branding settings through the --theme-* variables.
+:root {
+  --bp-card: #ffffff;
+  --bp-card-border: #e5e3dd;
+  --bp-surface: #f0eee9;
+  --bp-surface-hover: #e7e4dd;
+  --bp-input-border: #6b707b;
+  --bp-muted: #6b707b;
+  --bp-subtle: #3f434c;
+  --bp-divider: #e5e3dd;
+  --bp-info-bg: #eff3fb;
+  --bp-info-border: #e3e9f8;
+  --bp-tile: #e3e9f8;
+  --bp-error-bg: #f8e7e5;
+  --bp-error-border: #e5bdb8;
+}
+
+.dark {
+  --bp-card: #1a1c21;
+  --bp-card-border: #2a2d33;
+  --bp-surface: #26292f;
+  --bp-surface-hover: #2e3138;
+  --bp-input-border: #6b707b;
+  --bp-muted: #c9c7c1;
+  --bp-subtle: #c9c7c1;
+  --bp-divider: #3f434c;
+  --bp-info-bg: rgba(127, 163, 242, 0.12);
+  --bp-info-border: rgba(127, 163, 242, 0.28);
+  --bp-tile: rgba(127, 163, 242, 0.16);
+  --bp-error-bg: rgba(229, 189, 184, 0.1);
+  --bp-error-border: rgba(229, 189, 184, 0.35);
 }
 
 .form-checkbox {
@@ -31,12 +67,14 @@ html {
   background-color: var(--theme-dark-primary-500);
 }
 
+// The tick, inline: a root-relative url("/checkbox.svg") misses the login's
+// base path (/ui/v2/login) and answers 404, so a checked box showed no tick.
 .form-checkbox:checked::after {
   content: "";
   position: absolute;
   inset: 0;
-  -webkit-mask-image: url("/checkbox.svg");
-  mask-image: url("/checkbox.svg");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3E%3C/svg%3E");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;

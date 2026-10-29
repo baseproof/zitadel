@@ -1,7 +1,6 @@
 import { Alert } from "@/components/alert";
 import { DynamicTheme } from "@/components/dynamic-theme";
 import { Translated } from "@/components/translated";
-import { UserAvatar } from "@/components/user-avatar";
 import { VerifyForm } from "@/components/verify-form";
 import { UNKNOWN_USER_ID } from "@/lib/constants";
 import { getServiceConfig } from "@/lib/service-url";
@@ -105,34 +104,25 @@ export default async function Page(props: { searchParams: Promise<any> }) {
 
   return (
     <DynamicTheme branding={branding}>
-      <div className="flex flex-col space-y-4">
+      {/* 03: the line names the address the code went to, rather than an avatar. */}
+      <div className="flex flex-col">
         <h1>
           <Translated i18nKey="verify.title" namespace="verify" />
         </h1>
         <p className="ztdl-p">
-          <Translated i18nKey="verify.description" namespace="verify" />
+          <Translated
+            i18nKey="verify.description"
+            namespace="verify"
+            data={{
+              email:
+                human?.email?.email ??
+                loginName ??
+                sessionFactors?.factors?.user?.loginName ??
+                user?.preferredLoginName ??
+                "",
+            }}
+          />
         </p>
-
-        {sessionFactors ? (
-          <UserAvatar
-            loginName={loginName ?? sessionFactors.factors?.user?.loginName}
-            displayName={sessionFactors.factors?.user?.displayName}
-            showDropdown
-            searchParams={searchParams}
-          ></UserAvatar>
-        ) : (
-          (user || loginName) && (
-            <UserAvatar
-              loginName={loginName ?? user?.preferredLoginName}
-              displayName={
-                !loginSettings?.ignoreUnknownUsernames
-                  ? human?.profile?.displayName
-                  : (loginName ?? user?.preferredLoginName)
-              }
-              showDropdown={false}
-            />
-          )
-        )}
       </div>
 
       <div className="w-full">

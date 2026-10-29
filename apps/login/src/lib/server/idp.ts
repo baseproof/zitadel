@@ -57,10 +57,11 @@ export async function redirectToIdp(prevState: RedirectToIdpState, formData: For
   if (requestId) params.set("requestId", requestId);
   if (organization) params.set("organization", organization);
   if (postErrorRedirectUrl) params.set("postErrorRedirectUrl", postErrorRedirectUrl);
+  // The failure page names the provider that didn't finish (01·D).
+  params.set("idpId", idpId);
 
   // redirect to LDAP page where username and password is requested
   if (provider === "ldap") {
-    params.set("idpId", idpId);
     redirect(`/idp/ldap?` + params.toString());
   }
 
