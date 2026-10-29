@@ -153,6 +153,7 @@ export function RegisterForm({
         </div>
       )}
       <form
+        method="post"
         className="flex w-full flex-col"
         noValidate
         onSubmit={handleSubmit((values) => {

@@ -247,7 +247,7 @@ export function RegisterPasskey({
   );
 
   return (
-    <form className="flex w-full flex-col" onSubmit={handleSubmit(submitRegisterAndContinue)}>
+    <form method="post" className="flex w-full flex-col" onSubmit={handleSubmit(submitRegisterAndContinue)}>
       {unsupported && (
         <div className="mb-6">
           <Alert title={t("set.unsupported.title")}>{t("set.unsupported.description")}</Alert>

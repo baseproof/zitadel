@@ -222,7 +222,7 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
           <Alert>{error}</Alert>
         </div>
       )}
-      <form className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(setCodeAndContinue)}>
+      <form method="post" className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(setCodeAndContinue)}>
         <Controller
           control={control}
           name="code"

@@ -122,7 +122,7 @@ export function TotpRegister({ uri, loginName, sessionId, requestId, organizatio
 
           {error && <Alert>{error}</Alert>}
 
-          <form className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(continueWithCode)}>
+          <form method="post" className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(continueWithCode)}>
             <Controller
               control={control}
               name="code"

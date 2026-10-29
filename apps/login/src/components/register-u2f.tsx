@@ -176,7 +176,7 @@ export function RegisterU2f({ loginName, sessionId, organization, requestId, che
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
-      <form className="w-full">
+      <form method="post" className="w-full">
         {error && (
           <div className="py-4">
             <Alert>{error}</Alert>

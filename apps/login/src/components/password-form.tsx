@@ -206,7 +206,7 @@ export function PasswordForm({
           <Alert type={AlertType.INFO}>{info}</Alert>
         </div>
       )}
-      <form className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(submitPassword)}>
+      <form method="post" className="flex w-full flex-col gap-5" noValidate onSubmit={handleSubmit(submitPassword)}>
         <EmailChip loginName={loginName} changeHref={loginNameHref({ loginName, organization, requestId })} />
         <TextInput
           type="password"

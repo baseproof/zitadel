@@ -162,7 +162,12 @@ export function UsernameForm({
           <Alert title={banner.title}>{banner.description}</Alert>
         </div>
       )}
-      <form className="flex w-full flex-col" noValidate onSubmit={handleSubmit((e) => submitLoginName(e, organization))}>
+      <form
+        method="post"
+        className="flex w-full flex-col"
+        noValidate
+        onSubmit={handleSubmit((e) => submitLoginName(e, organization))}
+      >
         <TextInput
           type="email"
           inputMode="email"

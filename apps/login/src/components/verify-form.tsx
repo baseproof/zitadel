@@ -159,7 +159,7 @@ export function VerifyForm({ userId, loginName, organization, requestId, code, i
           <Alert title={error} />
         </div>
       )}
-      <form className="flex w-full flex-col" noValidate onSubmit={handleSubmit(fcn)}>
+      <form method="post" className="flex w-full flex-col" noValidate onSubmit={handleSubmit(fcn)}>
         <Controller
           control={control}
           name="code"

@@ -222,6 +222,7 @@ export function SetPasswordForm({
       <>
         {errorBanner}
         <form
+          method="post"
           className="flex w-full flex-col"
           noValidate
           onSubmit={async (event) => {
@@ -289,7 +290,7 @@ export function SetPasswordForm({
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
       {errorBanner}
-      <form className="flex w-full flex-col" noValidate onSubmit={handleSubmit(submitPassword)}>
+      <form method="post" className="flex w-full flex-col" noValidate onSubmit={handleSubmit(submitPassword)}>
         <input
           type="text"
           name="username"

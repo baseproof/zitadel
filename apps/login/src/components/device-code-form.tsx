@@ -59,7 +59,7 @@ export function DeviceCodeForm({ userCode }: { userCode?: string }) {
 
   return (
     <>
-      <form className="w-full">
+      <form method="post" className="w-full">
         <div className="mt-4">
           <TextInput
             type="text"

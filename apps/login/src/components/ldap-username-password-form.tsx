@@ -81,7 +81,7 @@ export function LDAPUsernamePasswordForm({
   }
 
   return (
-    <form className="w-full space-y-4">
+    <form method="post" className="w-full space-y-4">
       <TextInput
         type="text"
         autoComplete="username"
