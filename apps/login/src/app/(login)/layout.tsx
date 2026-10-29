@@ -2,13 +2,11 @@ import "@/styles/globals.scss";
 
 import { BackgroundWrapper } from "@/components/background-wrapper";
 import { LanguageProvider } from "@/components/language-provider";
-import { SaveDataProvider } from "@/components/save-data";
 import { Skeleton } from "@/components/skeleton";
 import { ThemeProvider } from "@/components/theme-provider";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
-import { headers } from "next/headers";
 import React, { Suspense } from "react";
 
 // Baseproof's favicons (cdn.baseproof.ai/web/favicons), served from public/
@@ -33,45 +31,41 @@ export async function generateMetadata(): Promise<Metadata> {
 // (ui_locales), else the browser's when the instance allows it, else the
 // instance's default (src/i18n/request.ts). That is how Auth0's, Okta's and
 // Microsoft's sign-in pages behave (checked 2026-10-29). The font is the
-// branding's (BrandingStyle); until it loads, the system's sans-serif. A
-// request with Save-Data: on gets no web font at all.
+// branding's (BrandingStyle); until it loads, the system's sans-serif.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
-  const saveData = (await headers()).get("save-data")?.trim().toLowerCase() === "on";
 
   return (
     <html lang={locale} suppressHydrationWarning>
       <head />
       <body>
         <ThemeProvider>
-          <SaveDataProvider saveData={saveData}>
-            <Tooltip.Provider>
-              <Suspense
-                fallback={
-                  <BackgroundWrapper
-                    className={`bg-background-light-600 dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-center`}
-                  >
-                    <div className="relative mx-auto w-full max-w-[440px] py-8">
-                      <Skeleton>
-                        <div className="h-40"></div>
-                      </Skeleton>
-                    </div>
-                  </BackgroundWrapper>
-                }
-              >
-                <LanguageProvider>
-                  <BackgroundWrapper
-                    className={`bg-background-light-600 dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-center`}
-                  >
-                    {/* The theme follows the system (branding's theme mode), so there is no switch. */}
-                    <div className="relative mx-auto w-full max-w-[1100px] py-8">
-                      <div>{children}</div>
-                    </div>
-                  </BackgroundWrapper>
-                </LanguageProvider>
-              </Suspense>
-            </Tooltip.Provider>
-          </SaveDataProvider>
+          <Tooltip.Provider>
+            <Suspense
+              fallback={
+                <BackgroundWrapper
+                  className={`bg-background-light-600 dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-center`}
+                >
+                  <div className="relative mx-auto w-full max-w-[440px] py-8">
+                    <Skeleton>
+                      <div className="h-40"></div>
+                    </Skeleton>
+                  </div>
+                </BackgroundWrapper>
+              }
+            >
+              <LanguageProvider>
+                <BackgroundWrapper
+                  className={`bg-background-light-600 dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-center`}
+                >
+                  {/* The theme follows the system (branding's theme mode), so there is no switch. */}
+                  <div className="relative mx-auto w-full max-w-[1100px] py-8">
+                    <div>{children}</div>
+                  </div>
+                </BackgroundWrapper>
+              </LanguageProvider>
+            </Suspense>
+          </Tooltip.Provider>
         </ThemeProvider>
       </body>
     </html>
