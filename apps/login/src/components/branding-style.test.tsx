@@ -3,6 +3,7 @@ import { BrandingSettings, ThemeMode } from "@zitadel/proto/zitadel/settings/v2/
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { brandingFontCss, brandingFontHref, BrandingStyle } from "./branding-style";
 import { Logo } from "./logo";
+import { SaveDataProvider } from "./save-data";
 
 const preload = vi.hoisted(() => vi.fn());
 vi.mock("react-dom", async (actual) => ({ ...(await actual<typeof import("react-dom")>()), preload }));
@@ -25,9 +26,9 @@ describe("branding font", () => {
     expect(brandingFontHref(url)).toBe(href);
   });
 
-  test("the face carries the variable font's weight range and becomes the page's font", () => {
+  test("the face carries the variable font's weight range, is used only when ready, and becomes the page's font", () => {
     const css = brandingFontCss(FONT);
-    expect(css).toContain(`@font-face{font-family:"Branding";src:url("${FONT}");font-display:swap;font-weight:100 900}`);
+    expect(css).toContain(`@font-face{font-family:"Branding";src:url("${FONT}");font-display:optional;font-weight:100 900}`);
     expect(css).toContain('html{font-family:"Branding",ui-sans-serif, system-ui, sans-serif}');
   });
 
@@ -60,6 +61,19 @@ describe("BrandingStyle", () => {
   test("without a font it still renders the colors, and preloads nothing", () => {
     render(<BrandingStyle branding={{ lightTheme: { primaryColor: "#9e2b25" } } as BrandingSettings} />);
     const style = brandingStyleWith("--theme-light-primary-500:#9e2b25");
+    expect(style).toBeDefined();
+    expect(style?.textContent).not.toContain("@font-face");
+    expect(preload).not.toHaveBeenCalled();
+  });
+
+  test("a request that asks to save data gets the colors and no web font: no face, no preload", () => {
+    const branding = { lightTheme: { primaryColor: "#7fa3f2" }, fontUrl: FONT } as BrandingSettings;
+    render(
+      <SaveDataProvider saveData>
+        <BrandingStyle branding={branding} />
+      </SaveDataProvider>,
+    );
+    const style = brandingStyleWith("--theme-light-primary-500:#7fa3f2");
     expect(style).toBeDefined();
     expect(style?.textContent).not.toContain("@font-face");
     expect(preload).not.toHaveBeenCalled();
