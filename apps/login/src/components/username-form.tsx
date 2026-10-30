@@ -4,6 +4,7 @@ import { handleServerActionResponse } from "@/lib/client-utils";
 import { sendLoginname } from "@/lib/server/loginname";
 import { FingerPrintIcon } from "@heroicons/react/24/outline";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
+import { UserRoundKey } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useState } from "react";
@@ -178,6 +179,7 @@ export function UsernameForm({
           autoFocus
           {...register("loginName", loginNameRules)}
           label={inputLabel}
+          placeholder={t("placeholder")}
           error={errors.loginName?.message}
           data-testid="username-text-input"
           suffix={hideSuffix ? undefined : suffix}
@@ -191,7 +193,19 @@ export function UsernameForm({
           disabled={loading}
         >
           {loading && <Spinner className="mr-2 h-5 w-5" />}
-          <Translated i18nKey={unreachable ? "tryAgain" : "submit"} namespace="loginname" />
+          {unreachable ? (
+            <Translated i18nKey="tryAgain" namespace="loginname" />
+          ) : (
+            // A phone says "Continue": its providers wait behind "Other ways to sign in".
+            <>
+              <span className="sm:hidden">
+                <Translated i18nKey="submitShort" namespace="loginname" />
+              </span>
+              <span className="max-sm:hidden">
+                <Translated i18nKey="submit" namespace="loginname" />
+              </span>
+            </>
+          )}
         </Button>
       </form>
 
@@ -202,16 +216,24 @@ export function UsernameForm({
           </Divider>
           <div className="flex flex-col gap-2">
             {allowPasskeys && (
+              // On a phone an outlined "Sign in with a passkey", as quiet as
+              // "Other ways to sign in" under it; from 640px the filled button.
               <Button
                 data-testid="passkey-button"
                 type="button"
-                className="w-full"
+                className="w-full max-sm:border max-sm:border-[var(--bp-card-border)] max-sm:bg-transparent max-sm:hover:bg-[var(--bp-surface)]"
                 variant={ButtonVariants.Secondary}
                 disabled={loading}
                 onClick={signInWithPasskey}
               >
-                <FingerPrintIcon className="h-5 w-5" aria-hidden="true" />
-                <Translated i18nKey="passwordless" namespace="loginname" />
+                <UserRoundKey className="h-5 w-5 sm:hidden" strokeWidth={1.75} aria-hidden="true" />
+                <FingerPrintIcon className="h-5 w-5 max-sm:hidden" aria-hidden="true" />
+                <span className="sm:hidden">
+                  <Translated i18nKey="passkeyShort" namespace="loginname" />
+                </span>
+                <span className="max-sm:hidden">
+                  <Translated i18nKey="passwordless" namespace="loginname" />
+                </span>
               </Button>
             )}
             {children}
@@ -220,7 +242,7 @@ export function UsernameForm({
       )}
 
       {allowRegister && (
-        <div className="mt-7 flex flex-row flex-wrap items-center gap-1.5 text-[14px]">
+        <div className="mt-7 flex flex-row flex-wrap items-center gap-1.5 text-[14px] max-sm:justify-center">
           <span className="text-[var(--bp-subtle)]">
             <Translated i18nKey="registerPrompt" namespace="loginname" />
           </span>

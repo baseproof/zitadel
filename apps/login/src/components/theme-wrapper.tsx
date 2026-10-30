@@ -55,8 +55,9 @@ export const ThemeWrapper = ({ children, branding }: Props) => {
 
   // The branding's colors and font are in the page's HTML (BrandingStyle), so
   // they hold from the first paint rather than after hydration.
+  // On a phone it fills the layout's height, as the page inside it does.
   return (
-    <div>
+    <div className="max-sm:flex max-sm:flex-1 max-sm:flex-col">
       <BrandingStyle branding={branding} />
       {children}
     </div>

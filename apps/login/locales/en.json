@@ -27,14 +27,21 @@
   "accountIntegrity": {
     "providerAccount": "This account signs in through its provider, so it has no password or passkey here."
   },
+  "footer": {
+    "terms": "Terms",
+    "privacy": "Privacy"
+  },
   "loginname": {
     "title": "Log in",
     "description": "Continue to Baseproof",
     "register": "Get started →",
     "registerPrompt": "New to Baseproof?",
     "submit": "Continue with email",
+    "submitShort": "Continue",
+    "placeholder": "name@company.com",
     "tryAgain": "Try again",
     "passwordless": "Passwordless sign-in",
+    "passkeyShort": "Sign in with a passkey",
     "labels": {
       "loginname": "Email",
       "username": "Username",
@@ -206,6 +213,11 @@
     "orSignUpWith": "or sign up with",
     "signInWithName": "Sign in with {name}",
     "signUpWithName": "Sign up with {name}",
+    "otherWaysSignIn": "Other ways to sign in",
+    "otherWaysSignUp": "Other ways to sign up",
+    "sheetSignIn": "Sign in with",
+    "sheetSignUp": "Sign up with",
+    "closeSheet": "Close",
     "signInWithApple": "Sign in with Apple",
     "signInWithGoogle": "Sign in with Google",
     "signInWithAzureAD": "Sign in with AzureAD",

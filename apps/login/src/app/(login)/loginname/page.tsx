@@ -87,7 +87,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         <h1>
           <Translated i18nKey="title" namespace="loginname" />
         </h1>
-        <p className="ztdl-p">
+        {/* a phone shows no line under the title: the wordmark already says where this is */}
+        <p className="ztdl-p max-sm:hidden">
           <Translated i18nKey="description" namespace="loginname" />
         </p>
       </div>
