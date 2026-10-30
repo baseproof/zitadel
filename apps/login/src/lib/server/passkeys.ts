@@ -6,7 +6,9 @@ import {
   getLoginSettings,
   getSession,
   getUserByID,
+  listAuthenticationMethodTypes,
   registerPasskey,
+  ServiceConfig,
   verifyPasskeyRegistration as zitadelVerifyPasskeyRegistration,
 } from "@/lib/zitadel";
 import { create, Duration } from "@zitadel/client";
@@ -19,6 +21,7 @@ import {
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { userAgent } from "next/server";
+import { isProviderOnly } from "../account-integrity";
 import { completeFlowOrGetUrl } from "../client";
 import { getSessionCookieById } from "../cookies";
 import { getServiceConfig } from "../service-url";
@@ -44,6 +47,13 @@ type RegisterPasskeyCommand = {
   code?: string;
   codeId?: string;
 };
+
+// An account whose only way in is its provider gets no passkey here (account
+// integrity, ../account-integrity.ts): it signs in through that provider.
+async function providerOnlyError(serviceConfig: ServiceConfig, userId: string): Promise<string | null> {
+  const methods = await listAuthenticationMethodTypes({ serviceConfig, userId });
+  return isProviderOnly(methods.authMethodTypes) ? (await getTranslations("accountIntegrity"))("providerAccount") : null;
+}
 
 export async function registerPasskeyLink(
   command: RegisterPasskeyCommand,
@@ -87,6 +97,11 @@ export async function registerPasskeyLink(
       return { error: enrollmentError };
     }
 
+    const providerOnly = await providerOnlyError(serviceConfig, currentUserId);
+    if (providerOnly) {
+      return { error: providerOnly };
+    }
+
     // Generate registration code if not provided
     if (command.code && command.codeId) {
       registerCode = {
@@ -114,6 +129,11 @@ export async function registerPasskeyLink(
 
     if (!userResponse || !userResponse.user) {
       return { error: "User not found" };
+    }
+
+    const providerOnly = await providerOnlyError(serviceConfig, currentUserId);
+    if (providerOnly) {
+      return { error: providerOnly };
     }
 
     // Create a session for the user to continue the flow after passkey registration

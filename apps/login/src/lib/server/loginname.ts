@@ -7,6 +7,7 @@ import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_
 import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
+import { verifiedHolders } from "../account-integrity";
 import { idpTypeToIdentityProviderType, idpTypeToSlug } from "../idp";
 
 import { PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
@@ -106,7 +107,14 @@ export async function sendLoginname(command: SendLoginnameCommand) {
   const { result: potentialUsers } = searchResult;
 
   // Additional safety check: treat undefined result as empty array
-  const users = potentialUsers ?? [];
+  const found = potentialUsers ?? [];
+
+  // An address two accounts hold resolves to the one that verified it (account
+  // integrity, ../account-integrity.ts): an account that never verified the
+  // address, such as a sign-up left at its code, does not stand between the
+  // address's owner and their account. Any other tie is still refused below.
+  const verified = found.length > 1 ? verifiedHolders(found, command.loginName) : [];
+  const users = verified.length === 1 ? verified : found;
 
   if (users.length === 0) {
     logger.debug("No users found, will proceed with org discovery");

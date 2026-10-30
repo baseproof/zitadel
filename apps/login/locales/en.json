@@ -24,6 +24,9 @@
       "description": "You can close this window."
     }
   },
+  "accountIntegrity": {
+    "providerAccount": "This account signs in through its provider, so it has no password or passkey here."
+  },
   "loginname": {
     "title": "Log in",
     "description": "Continue to Baseproof",
@@ -46,6 +49,8 @@
       "passwordlessNeedsEmail": "Enter your email first. Passwordless sign-in needs it.",
       "providerFailed": "{provider} sign-in didn't finish",
       "providerFailedHint": "Try again, or continue with your email.",
+      "providerEmailTaken": "This email already has a Baseproof account",
+      "providerEmailTakenHint": "Log in to that account with your email. {provider} can't open a second account for the same address.",
       "internalErrorHint": "Check your connection and try again. What you typed is kept.",
       "userNotActiveHint": "Ask your Baseproof admin to reactivate it.",
       "registerByInvitation": "Your organization adds people by invitation. Ask your Baseproof admin for one.",

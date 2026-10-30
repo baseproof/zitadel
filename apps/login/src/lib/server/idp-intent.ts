@@ -22,7 +22,7 @@ import {
 import { Code, create } from "@zitadel/client";
 import { AutoLinkingOption } from "@zitadel/proto/zitadel/idp/v2/idp_pb";
 import { SetHumanEmail } from "@zitadel/proto/zitadel/user/v2/email_pb";
-import { SetHumanProfile } from "@zitadel/proto/zitadel/user/v2/user_pb";
+import { SetHumanProfile, User } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import {
   CreateUserRequest,
   CreateUserRequestSchema,
@@ -31,6 +31,7 @@ import {
 } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
+import { hasVerifiedEmail, holdsVerified, verifiedHolders } from "../account-integrity";
 import { getFingerprintIdCookie } from "../fingerprint";
 import { isIdpLinkProofValid } from "../idp-link-proof";
 import { getEnrollmentAuthorizationError } from "./enrollment-guard";
@@ -282,6 +283,18 @@ type IDPHandlerResult = {
 } | null;
 
 /**
+ * Back to the email screen with the address filled in and a banner naming the
+ * provider: the address belongs to another account, and that account is the
+ * way in (account integrity, ../account-integrity.ts).
+ */
+function addressHeldRedirect(ctx: IDPHandlerContext, address: string): string {
+  const params = new URLSearchParams({ loginName: address, idpEmailTaken: ctx.idp.name || ctx.params.provider });
+  if (ctx.params.requestId) params.set("requestId", ctx.params.requestId);
+  if (ctx.params.organization) params.set("organization", ctx.params.organization);
+  return `/loginname?${params}`;
+}
+
+/**
  * CASE 1: Explicit Linking (via sessionId)
  * This happens when a logged-in user initiates an IDP flow to link it to their account.
  */
@@ -467,6 +480,27 @@ async function handleUserExists(ctx: IDPHandlerContext): Promise<IDPHandlerResul
     // Auto-update user if enabled. Uses the non-deprecated UpdateUser endpoint so that
     // metadata provided by the action response is applied in the same request.
     const updateUserRequest = options?.isAutoUpdate ? buildUpdateUserRequest(ctx.intent, userId) : undefined;
+
+    // A sign-in whose provider's address another account holds verified stops
+    // before anything is written (account integrity, ../account-integrity.ts):
+    // auto-update would put this account on that address, or keep it there
+    // beside its verified holder. The person is told the address belongs to
+    // another account. On the local rig (2026-10-30) this also turned away the
+    // run-4 attacker's own account, which held the address unverified, once
+    // the victim's account held it verified.
+    const newAddress =
+      updateUserRequest?.userType?.case === "human" ? updateUserRequest.userType.value.email?.email : undefined;
+    if (newAddress) {
+      const { result } = await listUsers({ serviceConfig, email: newAddress });
+      if (verifiedHolders(result, newAddress).some((holder) => holder.userId !== userId)) {
+        logger.warn("Provider sign-in refused: the provider's address belongs to another account", {
+          userId,
+          idpId: ctx.intent.idpInformation?.idpId,
+        });
+        return { redirect: addressHeldRedirect(ctx, newAddress) };
+      }
+    }
+
     if (updateUserRequest) {
       try {
         logger.debug("Auto-updating user profile");
@@ -529,18 +563,35 @@ async function handleAutoLinking(ctx: IDPHandlerContext): Promise<IDPHandlerResu
     const emailVerified =
       createUserData?.email?.verification?.case === "isVerified" && createUserData?.email?.verification?.value;
 
+    // Linking joins the provider's identity to an account only when exactly
+    // one account matches and that account's own email is verified (account
+    // integrity, ../account-integrity.ts). A match on an address its account
+    // never verified, or one match among several, joins nothing: upstream took
+    // the first match and checked only the provider's side, which let a
+    // sign-in join an account someone else had made with this address.
+    const linkable = (matches: User[], verified: (user: User) => boolean) => {
+      if (matches.length === 1 && verified(matches[0])) {
+        return matches[0];
+      }
+      if (matches.length) {
+        logger.warn("Auto-linking refused: no single account holds the address verified", {
+          matches: matches.length,
+          idpId: idpInformation?.idpId,
+        });
+      }
+      return null;
+    };
+
     if (options.autoLinking === AutoLinkingOption.EMAIL && email && emailVerified) {
-      foundUser = await listUsers({ serviceConfig, email, organizationId: organization }).then((response) => {
-        return response.result ? response.result[0] : null;
-      });
+      foundUser = await listUsers({ serviceConfig, email, organizationId: organization }).then((response) =>
+        linkable(response.result, (user) => holdsVerified(user, email)),
+      );
     } else if (options.autoLinking === AutoLinkingOption.USERNAME) {
       foundUser = await listUsers({
         serviceConfig,
         userName: idpInformation!.userName,
         organizationId: organization,
-      }).then((response) => {
-        return response.result ? response.result[0] : null;
-      });
+      }).then((response) => linkable(response.result, hasVerifiedEmail));
     }
 
     if (foundUser) {
@@ -618,6 +669,30 @@ async function handleAutoLinking(ctx: IDPHandlerContext): Promise<IDPHandlerResu
   }
 
   return null;
+}
+
+/**
+ * CASE 3b: The address belongs to an account already (account integrity,
+ * ../account-integrity.ts). A provider sign-in that matched no account makes
+ * none, automatically or through the registration form, when another account
+ * holds its address verified: that person signs in with that account. A
+ * second account on the address would split one person's records, or give a
+ * second person an address that is someone else's.
+ */
+async function handleAddressHeld(ctx: IDPHandlerContext): Promise<IDPHandlerResult> {
+  const address = resolveCreateUser(ctx.intent)?.email?.email;
+  if (!address) {
+    return null;
+  }
+  // every organization: the address is one person's wherever their account lives
+  const { result } = await listUsers({ serviceConfig: ctx.serviceConfig, email: address });
+  if (!verifiedHolders(result, address).length) {
+    return null;
+  }
+  logger.warn("Provider sign-in refused: an account already holds its address", {
+    idpId: ctx.intent.idpInformation?.idpId,
+  });
+  return { redirect: addressHeldRedirect(ctx, address) };
 }
 
 /**
@@ -889,6 +964,7 @@ export async function processIDPCallback({
       handleExplicitLinking,
       handleUserExists,
       handleAutoLinking,
+      handleAddressHeld,
       handleAutoCreation,
       handleManualCreation,
       handleNoUserFound,

@@ -24,6 +24,7 @@ import { User, UserState } from "@zitadel/proto/zitadel/user/v2/user_pb";
 import { SetPasswordRequestSchema } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
+import { isProviderOnly } from "../account-integrity";
 import { completeFlowOrGetUrl } from "../client";
 import { getSessionCookieById, getSessionCookieByLoginName } from "../cookies";
 import { getServiceConfig } from "../service-url";
@@ -118,6 +119,19 @@ export async function resetPassword(command: ResetPasswordCommand) {
   }
 
   const userId = user.userId;
+
+  // An account whose only way in is its provider gets no password here
+  // (account integrity, ../account-integrity.ts): a reset would give it one.
+  // With enumeration protection on, the reply is the unknown account's.
+  const methods = await listAuthenticationMethodTypes({ serviceConfig, userId });
+  if (isProviderOnly(methods.authMethodTypes)) {
+    if (userLoginSettings?.ignoreUnknownUsernames) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      return {};
+    }
+    return { error: (await getTranslations("accountIntegrity"))("providerAccount") };
+  }
+
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
   return passwordReset({
@@ -493,10 +507,16 @@ export async function changePassword(command: { code?: string; userId: string; p
     return { error: t("errors.userInitialStateNotSupported") };
   }
 
+  const authmethods = await listAuthenticationMethodTypes({ serviceConfig, userId });
+
+  // An account whose only way in is its provider gets no password here, with
+  // or without a reset code (account integrity, ../account-integrity.ts).
+  if (isProviderOnly(authmethods.authMethodTypes)) {
+    return { error: (await getTranslations("accountIntegrity"))("providerAccount") };
+  }
+
   // check if the user has no password set in order to set a password
   if (!command.code) {
-    const authmethods = await listAuthenticationMethodTypes({ serviceConfig, userId });
-
     // if the user has no authmethods set, we need to check if the user was verified
     if (authmethods.authMethodTypes.length !== 0) {
       return {

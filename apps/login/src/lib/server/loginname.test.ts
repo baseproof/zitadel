@@ -165,14 +165,72 @@ describe("sendLoginname", () => {
       mockGetLoginSettings.mockResolvedValue({ allowLocalAuthentication: true });
       mockSearchUsers.mockResolvedValue({
         result: [
-          { userId: "user1", preferredLoginName: "user1@example.com" },
-          { userId: "user2", preferredLoginName: "user2@example.com" },
+          {
+            userId: "user1",
+            preferredLoginName: "user1@example.com",
+            type: { case: "human", value: { email: { email: "user@example.com", isVerified: false } } },
+          },
+          {
+            userId: "user2",
+            preferredLoginName: "user2@example.com",
+            type: { case: "human", value: { email: { email: "user@example.com", isVerified: false } } },
+          },
         ],
       });
 
       const result = await sendLoginname({
         loginName: "user@example.com",
       });
+
+      expect(result).toEqual({ error: "errors.moreThanOneUserFound" });
+    });
+  });
+
+  // Account integrity (lib/account-integrity.ts): an address two accounts hold
+  // resolves to the one that verified it; a tie among verified ones is refused.
+  describe("Two accounts on one address", () => {
+    const owner = {
+      userId: "owner1",
+      preferredLoginName: "victim@corp.example",
+      details: { resourceOwner: "org123" },
+      type: { case: "human", value: { email: { email: "victim@corp.example", isVerified: true } } },
+      state: UserState.ACTIVE,
+    };
+    const squatter = {
+      userId: "squatter1",
+      preferredLoginName: "mallory@tenant.example",
+      details: { resourceOwner: "org123" },
+      type: { case: "human", value: { email: { email: "victim@corp.example", isVerified: false } } },
+      state: UserState.ACTIVE,
+    };
+
+    beforeEach(() => {
+      mockGetLoginSettings.mockResolvedValue({ allowLocalAuthentication: true });
+      mockCreate.mockReturnValue({});
+      mockCreateSessionAndUpdateCookie.mockResolvedValue({
+        session: { factors: { user: { id: "owner1", loginName: "victim@corp.example", organizationId: "org123" } } },
+        sessionCookie: {},
+      });
+      mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes: [AuthenticationMethodType.PASSWORD] });
+    });
+
+    test("resolves to the account that verified the address", async () => {
+      mockSearchUsers.mockResolvedValue({ result: [squatter, owner] });
+
+      const result = await sendLoginname({ loginName: "victim@corp.example", requestId: "req123" });
+
+      expect(result).not.toEqual({ error: "errors.moreThanOneUserFound" });
+      expect(mockListAuthenticationMethodTypes).toHaveBeenCalledWith(expect.objectContaining({ userId: "owner1" }));
+      expect((result as any).redirect).toMatch(/^\/password\?/);
+      expect((result as any).redirect).toContain("loginName=victim%40corp.example");
+    });
+
+    test("refuses two accounts that both verified the address", async () => {
+      mockSearchUsers.mockResolvedValue({
+        result: [owner, { ...owner, userId: "owner2", preferredLoginName: "other@corp.example" }],
+      });
+
+      const result = await sendLoginname({ loginName: "victim@corp.example" });
 
       expect(result).toEqual({ error: "errors.moreThanOneUserFound" });
     });
@@ -1161,8 +1219,16 @@ describe("sendLoginname", () => {
       });
       mockSearchUsers.mockResolvedValue({
         result: [
-          { userId: "user1", preferredLoginName: "user1@example.com" },
-          { userId: "user2", preferredLoginName: "user2@example.com" },
+          {
+            userId: "user1",
+            preferredLoginName: "user1@example.com",
+            type: { case: "human", value: { email: { email: "user@example.com", isVerified: false } } },
+          },
+          {
+            userId: "user2",
+            preferredLoginName: "user2@example.com",
+            type: { case: "human", value: { email: { email: "user@example.com", isVerified: false } } },
+          },
         ],
       });
 
