@@ -126,7 +126,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
           </div>
         )}
 
-        <div className="mt-7 flex flex-row flex-wrap items-center gap-1.5 text-[14px]">
+        <div className="mt-7 flex flex-row flex-wrap items-center gap-1.5 text-[14px] max-sm:justify-center">
           <span className="text-[var(--bp-subtle)]">
             <Translated i18nKey="haveAccount" namespace="register" />
           </span>

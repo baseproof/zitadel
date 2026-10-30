@@ -545,6 +545,59 @@ describe("resetPassword", () => {
     expect(result).toEqual({ error: "errors.couldNotSendResetLink" });
     expect(mockPasswordReset).not.toHaveBeenCalled();
   });
+
+  // Account integrity (lib/account-integrity.ts): an account whose only way in
+  // is its provider signs in through that provider and gets no password.
+  describe("an account whose only way in is its provider", () => {
+    const account = {
+      userId: "user-1",
+      preferredLoginName: "user@example.com",
+      details: { resourceOwner: "org-1" },
+      type: { case: "human", value: { email: { email: "user@example.com", isVerified: true } } },
+    };
+
+    test("is sent no reset", async () => {
+      const { listAuthenticationMethodTypes } = await import("../zitadel");
+      vi.mocked(listAuthenticationMethodTypes).mockResolvedValue({
+        authMethodTypes: [AuthenticationMethodType.IDP],
+      } as any);
+      mockSearchUsers.mockResolvedValue({ result: [account] });
+      mockGetLoginSettings.mockResolvedValue({ ignoreUnknownUsernames: false });
+
+      const result = await resetPassword({ loginName: "user@example.com" });
+
+      expect(result).toEqual({ error: "providerAccount" });
+      expect(mockPasswordReset).not.toHaveBeenCalled();
+    });
+
+    test("answers as for an unknown account when enumeration protection is on", async () => {
+      const { listAuthenticationMethodTypes } = await import("../zitadel");
+      vi.mocked(listAuthenticationMethodTypes).mockResolvedValue({
+        authMethodTypes: [AuthenticationMethodType.IDP],
+      } as any);
+      mockSearchUsers.mockResolvedValue({ result: [account] });
+      mockGetLoginSettings.mockResolvedValue({ ignoreUnknownUsernames: true });
+
+      const result = await resetPassword({ loginName: "user@example.com" });
+
+      expect(result).toEqual({});
+      expect(mockPasswordReset).not.toHaveBeenCalled();
+    });
+
+    test("with a password as well, is sent the reset", async () => {
+      const { listAuthenticationMethodTypes } = await import("../zitadel");
+      vi.mocked(listAuthenticationMethodTypes).mockResolvedValue({
+        authMethodTypes: [AuthenticationMethodType.IDP, AuthenticationMethodType.PASSWORD],
+      } as any);
+      mockSearchUsers.mockResolvedValue({ result: [account] });
+      mockGetLoginSettings.mockResolvedValue({ ignoreUnknownUsernames: false });
+      mockPasswordReset.mockResolvedValue({});
+
+      await resetPassword({ loginName: "user@example.com" });
+
+      expect(mockPasswordReset).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-1" }));
+    });
+  });
 });
 
 describe("changePassword", () => {
@@ -594,6 +647,21 @@ describe("changePassword", () => {
     });
 
     expect(result).toEqual({ error: "errors.couldNotSendResetLink" });
+    expect(mockSetUserPassword).not.toHaveBeenCalled();
+  });
+
+  // Account integrity (lib/account-integrity.ts): a reset code never gives a
+  // password to an account whose only way in is its provider.
+  test("sets no password on an account whose only way in is its provider, even with a reset code", async () => {
+    const { listAuthenticationMethodTypes } = await import("../zitadel");
+    vi.mocked(listAuthenticationMethodTypes).mockResolvedValue({
+      authMethodTypes: [AuthenticationMethodType.IDP],
+    } as any);
+    mockGetUserByID.mockResolvedValue({ user: { userId: "user-1", state: 1 } });
+
+    const result = await changePassword({ userId: "user-1", code: "ABC123", password: "Newpassword1!" });
+
+    expect(result).toEqual({ error: "providerAccount" });
     expect(mockSetUserPassword).not.toHaveBeenCalled();
   });
 });

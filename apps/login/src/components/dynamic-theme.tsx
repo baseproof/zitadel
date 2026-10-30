@@ -90,7 +90,14 @@ export function DynamicTheme({
             );
           })()
         : // Baseproof's card (baseproof/legal-agents#120): the wordmark, then
-          // the title and its line, then the form, all left-aligned.
+          // the title and its line, then the form, all left-aligned. On a
+          // phone there is no card: the page is the card's colour, the
+          // content 16px from its edges, so a frame inside the screen costs
+          // no width; the wordmark stays at the top and the block under it
+          // sits in the space down to the footer, 40% of that space above it
+          // and 60% below (two spacers, 2:3), so its buttons fall where a
+          // thumb reaches. A page taller than the screen leaves the spacers
+          // nothing.
           (() => {
             const childArray = Children.toArray(actualChildren);
             const titleContent = childArray[0] || null;
@@ -98,10 +105,10 @@ export function DynamicTheme({
             const hasMultipleChildren = childArray.length > 1;
 
             return (
-              <div className="relative mx-auto w-full max-w-[440px] px-4 py-4 sm:px-0">
-                <div className="text-text-light-500 dark:text-text-dark-500 flex flex-col rounded-[16px] border border-[var(--bp-card-border)] bg-[var(--bp-card)] px-6 pt-8 pb-7 sm:px-10 sm:pt-10 sm:pb-9">
+              <div className="relative mx-auto w-full max-w-[440px] max-sm:flex max-sm:flex-1 max-sm:flex-col sm:py-4">
+                <div className="text-text-light-500 dark:text-text-dark-500 flex flex-col px-4 pt-6 pb-6 max-sm:flex-1 sm:rounded-[16px] sm:border sm:border-[var(--bp-card-border)] sm:bg-[var(--bp-card)] sm:px-10 sm:pt-10 sm:pb-9">
                   {branding && (
-                    <div className="mb-7 flex">
+                    <div className="mb-5 flex sm:mb-7">
                       <Logo
                         lightSrc={branding.lightTheme?.logoUrl}
                         darkSrc={branding.darkTheme?.logoUrl}
@@ -112,17 +119,19 @@ export function DynamicTheme({
                     </div>
                   )}
 
+                  <div aria-hidden="true" className="max-sm:flex-[2]" />
                   {hasMultipleChildren ? (
                     <>
                       {/* the title and its line sit 4px apart on every page, whatever spacing the page gives them */}
                       <div className="flex w-full flex-col items-start gap-1 text-left [&>div]:space-y-1">
                         {titleContent}
                       </div>
-                      <div className="mt-7 w-full">{formContent}</div>
+                      <div className="mt-5 w-full sm:mt-7">{formContent}</div>
                     </>
                   ) : (
                     <div className="w-full">{actualChildren}</div>
                   )}
+                  <div aria-hidden="true" className="max-sm:flex-[3]" />
                 </div>
               </div>
             );

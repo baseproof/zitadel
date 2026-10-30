@@ -228,6 +228,15 @@ describe("processIDPCallback", () => {
     // override these to exercise the identify-only rejection paths.
     mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes: [] });
     mockCheckUserVerification.mockResolvedValue(true);
+    // Default: no account holds the provider's address (account integrity's searches).
+    mockListUsers.mockResolvedValue({ result: [] });
+  });
+
+  // An account as Zitadel's user search returns it, holding an address verified or not.
+  const holder = (userId: string, isVerified: boolean, email = "test@example.com") => ({
+    userId,
+    details: { resourceOwner: "org123" },
+    type: { case: "human", value: { email: { email, isVerified } } },
   });
 
   afterEach(() => {
@@ -314,6 +323,36 @@ describe("processIDPCallback", () => {
   });
 
   describe("CASE 1: User exists and should sign in", () => {
+    // Account integrity (lib/account-integrity.ts): auto-update never moves an
+    // account onto an address another account holds verified.
+    test("refuses a sign-in whose auto-update would move the account onto another account's address", async () => {
+      mockGetIDPByID.mockResolvedValue({
+        ...defaultIdp,
+        config: { options: { ...defaultIdp.config.options, isAutoUpdate: true } },
+      });
+      mockListUsers.mockResolvedValue({ result: [holder("other1", true)] });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(mockCreateNewSessionFromIdpIntent).not.toHaveBeenCalled();
+      expect(result.redirect).toMatch(/^\/loginname\?/);
+      expect(result.redirect).toContain("idpEmailTaken=");
+    });
+
+    test("auto-updates when the address's only verified holder is the account itself", async () => {
+      mockGetIDPByID.mockResolvedValue({
+        ...defaultIdp,
+        config: { options: { ...defaultIdp.config.options, isAutoUpdate: true } },
+      });
+      mockListUsers.mockResolvedValue({ result: [holder("user123", true)] });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockUpdateUser).toHaveBeenCalled();
+      expect(result.redirect).toBe("https://app.example.com/success");
+    });
+
     test("should create session for existing user without auto-update", async () => {
       const result = await processIDPCallback(defaultParams);
 
@@ -779,14 +818,8 @@ describe("processIDPCallback", () => {
     });
 
     test("should auto-link user by email and create session", async () => {
-      const foundUser = {
-        userId: "found123",
-        details: {
-          resourceOwner: "org123",
-        },
-      };
       mockListUsers.mockResolvedValue({
-        result: [foundUser],
+        result: [holder("found123", true)],
       });
 
       const result = await processIDPCallback(defaultParams);
@@ -830,13 +863,39 @@ describe("processIDPCallback", () => {
 
     test("should return error redirect when auto-linking fails", async () => {
       mockListUsers.mockResolvedValue({
-        result: [{ userId: "found123" }],
+        result: [holder("found123", true)],
       });
       mockAddIDPLink.mockRejectedValue(new Error("Linking failed"));
 
       const result = await processIDPCallback(defaultParams);
 
       expect(result.redirect).toContain("/idp/google/linking-failed");
+    });
+
+    // Account integrity (lib/account-integrity.ts): run 4's chain linked a
+    // verified provider identity into an account that never verified the address.
+    test("never links into an account that never verified the address", async () => {
+      mockListUsers.mockResolvedValue({
+        result: [holder("squatter1", false)],
+      });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockAddIDPLink).not.toHaveBeenCalled();
+      expect(mockCreateNewSessionFromIdpIntent).not.toHaveBeenCalled();
+      expect(result.redirect).toContain("/idp/google/account-not-found");
+    });
+
+    test("never links into one of several accounts on the address, and sends the person to log in", async () => {
+      mockListUsers.mockResolvedValue({
+        result: [holder("found1", true), holder("found2", true)],
+      });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockAddIDPLink).not.toHaveBeenCalled();
+      expect(result.redirect).toMatch(/^\/loginname\?/);
+      expect(result.redirect).toContain("idpEmailTaken=");
     });
   });
 
@@ -860,14 +919,7 @@ describe("processIDPCallback", () => {
 
     test("should auto-link user by username", async () => {
       mockListUsers.mockResolvedValue({
-        result: [
-          {
-            userId: "found123",
-            details: {
-              resourceOwner: "org123",
-            },
-          },
-        ],
+        result: [holder("found123", true)],
       });
 
       const result = await processIDPCallback(defaultParams);
@@ -897,6 +949,34 @@ describe("processIDPCallback", () => {
           },
         },
       });
+    });
+
+    // Account integrity (lib/account-integrity.ts): one account per verified address.
+    test("makes no account for an address another account holds verified, and sends the person to log in", async () => {
+      mockListUsers.mockResolvedValue({ result: [holder("owner1", true)] });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockListUsers).toHaveBeenCalledWith({
+        serviceConfig: { baseUrl: "https://api.example.com" },
+        email: "test@example.com",
+      });
+      expect(mockCreateUser).not.toHaveBeenCalled();
+      expect(mockCreateNewSessionFromIdpIntent).not.toHaveBeenCalled();
+      expect(result.redirect).toMatch(/^\/loginname\?/);
+      expect(result.redirect).toContain("loginName=test%40example.com");
+      expect(result.redirect).toContain("idpEmailTaken=");
+      expect(result.redirect).toContain("requestId=req123");
+    });
+
+    test("still makes an account when only an unverified account holds the address", async () => {
+      mockListUsers.mockResolvedValue({ result: [holder("squatter1", false)] });
+      mockCreateUser.mockResolvedValue({ id: "newuser123" });
+
+      const result = await processIDPCallback(defaultParams);
+
+      expect(mockCreateUser).toHaveBeenCalled();
+      expect(result.redirect).toBe("https://app.example.com/success");
     });
 
     test("should auto-create user and create session", async () => {
@@ -1326,14 +1406,7 @@ describe("processIDPCallback", () => {
         },
       });
       mockListUsers.mockResolvedValue({
-        result: [
-          {
-            userId: "found123",
-            details: {
-              resourceOwner: "org123",
-            },
-          },
-        ],
+        result: [holder("found123", true)],
       });
 
       await processIDPCallback(defaultParams);

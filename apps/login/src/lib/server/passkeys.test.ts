@@ -1,3 +1,4 @@
+import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { registerPasskeyLink, sendPasskey } from "./passkeys";
 
@@ -557,6 +558,10 @@ describe("registerPasskeyLink", () => {
     };
 
     test("should succeed for session authenticated via IDP intent", async () => {
+      // an account with a provider identity and a password: not provider-only
+      mockListAuthenticationMethodTypes.mockResolvedValue({
+        authMethodTypes: [AuthenticationMethodType.IDP, AuthenticationMethodType.PASSWORD],
+      });
       mockGetSessionCookieById.mockResolvedValue(sessionCookie);
       mockGetSession.mockResolvedValue(idpSession);
       mockCreatePasskeyRegistrationLink.mockResolvedValue({
@@ -578,7 +583,10 @@ describe("registerPasskeyLink", () => {
       );
     });
 
-    test("should not require user verification or auth method check when IDP session is valid", async () => {
+    test("should not require user verification when IDP session is valid", async () => {
+      mockListAuthenticationMethodTypes.mockResolvedValue({
+        authMethodTypes: [AuthenticationMethodType.IDP, AuthenticationMethodType.PASSWORD],
+      });
       mockGetSessionCookieById.mockResolvedValue(sessionCookie);
       mockGetSession.mockResolvedValue(idpSession);
       mockCreatePasskeyRegistrationLink.mockResolvedValue({
@@ -591,15 +599,32 @@ describe("registerPasskeyLink", () => {
 
       await registerPasskeyLink({ sessionId: "session-123" });
 
-      // Should NOT call listAuthenticationMethodTypes or checkUserVerification
-      // because the session is already valid via IDP intent
-      expect(mockListAuthenticationMethodTypes).not.toHaveBeenCalled();
+      // The session is already valid via IDP intent, so no user verification
+      // check; the account's methods are read once, for account integrity's
+      // provider-only rule, not for the session.
       expect(mockCheckUserVerification).not.toHaveBeenCalled();
+      expect(mockListAuthenticationMethodTypes).toHaveBeenCalledTimes(1);
+      expect(mockListAuthenticationMethodTypes).toHaveBeenCalledWith(expect.objectContaining({ userId: "user-123" }));
+    });
+
+    // Account integrity (lib/account-integrity.ts): an account whose only way
+    // in is its provider signs in through that provider and gets no passkey.
+    test("refuses a passkey to an account whose only way in is its provider", async () => {
+      mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes: [AuthenticationMethodType.IDP] });
+      mockGetSessionCookieById.mockResolvedValue(sessionCookie);
+      mockGetSession.mockResolvedValue(idpSession);
+
+      const result = await registerPasskeyLink({ sessionId: "session-123" });
+
+      expect(result).toEqual({ error: "providerAccount" });
+      expect(mockCreatePasskeyRegistrationLink).not.toHaveBeenCalled();
+      expect(mockRegisterPasskey).not.toHaveBeenCalled();
     });
   });
 
   describe("password-authenticated session", () => {
     test("should succeed for session authenticated via password", async () => {
+      mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes: [AuthenticationMethodType.PASSWORD] });
       mockGetSessionCookieById.mockResolvedValue({
         id: "session-123",
         token: "session-token",

@@ -29,6 +29,26 @@
     height: 44px;
     transform: translateY(-50%);
   }
+
+  // A phone's provider sheet (sign-in-with-idp.tsx) rises from the foot of
+  // the screen, and simply appears for a reader who asks for less motion.
+  .bp-sheet[open] {
+    animation: bp-sheet-up 0.2s ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bp-sheet[open] {
+      animation: none;
+    }
+  }
+}
+
+@keyframes bp-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
 }
 
 html {

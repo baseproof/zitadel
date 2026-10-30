@@ -53,13 +53,20 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   const t = await getTranslations("loginname");
   // A provider's sign-in that came back without finishing (01·D): the failure
-  // page sends people here with the provider's name.
-  const banner = searchParams?.idpFailed
+  // page sends people here with the provider's name. A provider's sign-in whose
+  // address belongs to an account already comes back with that address filled
+  // in (account integrity, lib/account-integrity.ts): that account is the way in.
+  const banner = searchParams?.idpEmailTaken
     ? {
-        title: t("errors.providerFailed", { provider: searchParams.idpFailed }),
-        description: t("errors.providerFailedHint"),
+        title: t("errors.providerEmailTaken"),
+        description: t("errors.providerEmailTakenHint", { provider: searchParams.idpEmailTaken }),
       }
-    : undefined;
+    : searchParams?.idpFailed
+      ? {
+          title: t("errors.providerFailed", { provider: searchParams.idpFailed }),
+          description: t("errors.providerFailedHint"),
+        }
+      : undefined;
 
   const providerTiles =
     loginSettings?.allowExternalIdp && !!identityProviders?.length ? (
@@ -80,7 +87,8 @@ export default async function Page(props: { searchParams: Promise<Record<string 
         <h1>
           <Translated i18nKey="title" namespace="loginname" />
         </h1>
-        <p className="ztdl-p">
+        {/* a phone shows no line under the title: the wordmark already says where this is */}
+        <p className="ztdl-p max-sm:hidden">
           <Translated i18nKey="description" namespace="loginname" />
         </p>
       </div>
