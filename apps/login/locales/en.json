@@ -101,11 +101,6 @@
         "title": "Passwordless isn't set up for this account yet",
         "description": "Log in with your password. You can turn on passwordless afterwards."
       },
-      "resetByAdmin": {
-        "title": "Your administrator reset your password",
-        "description": "Use the link we emailed you, or send a new one.",
-        "sendLink": "Send a new link"
-      },
       "errors": {
         "couldNotVerifyPassword": "Could not verify password",
         "couldNotResetPassword": "Could not reset password"

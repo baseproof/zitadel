@@ -41,18 +41,10 @@ export type SendLoginnameCommand = {
   method?: "passkey";
 };
 
-// Query parameters for /password that tell it what to show instead of a plain
-// password field (baseproof/legal-agents#120): an administrator reset the
-// password (02a·F, the old one no longer works, so none is asked for), or
-// "Passwordless sign-in" found no passkey on the account (02a·E).
-function passwordPageNotice(
-  params: URLSearchParams,
-  humanUser: { passwordChangeRequired?: boolean } | undefined,
-  method: SendLoginnameCommand["method"],
-) {
-  if (humanUser?.passwordChangeRequired) {
-    params.append("reset", "required");
-  } else if (method === "passkey") {
+// A required password change is handled by sendPassword after checking the
+// current password. It does not imply that the user needs an emailed reset.
+function passwordPageNotice(params: URLSearchParams, method: SendLoginnameCommand["method"]) {
+  if (method === "passkey") {
     params.append("notice", "noPasskey");
   }
 }
@@ -454,7 +446,7 @@ export async function sendLoginname(command: SendLoginnameCommand) {
               paramsPassword.append("requestId", command.requestId);
             }
 
-            passwordPageNotice(paramsPassword, humanUser, command.method);
+            passwordPageNotice(paramsPassword, command.method);
 
             return {
               redirect: "/password?" + paramsPassword,
@@ -543,7 +535,7 @@ export async function sendLoginname(command: SendLoginnameCommand) {
           paramsPasswordDefault.append("organization", organization);
         }
 
-        passwordPageNotice(paramsPasswordDefault, humanUser, command.method);
+        passwordPageNotice(paramsPasswordDefault, command.method);
 
         return {
           redirect: "/password?" + paramsPasswordDefault,
