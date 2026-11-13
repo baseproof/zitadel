@@ -1,7 +1,7 @@
 //go:build integration
 
-// Package login_test contains an end-to-end reproduction of GHSA-738m-7888-jfv8, an
-// external-IDP account pre-hijack / takeover in the server-rendered Login V1 UI.
+// Package login_test verifies that retiring Login V1 closes the account pre-hijack
+// path from GHSA-738m-7888-jfv8 and the account-rename path from GHSA-4hgj-wm6c-q7p2.
 //
 // The vulnerability: POST /ui/login/externaluser/option (handleExternalNotFoundOptionCheck)
 // is meant to be the *submit* of the "external account not found" page, which only ever appears
@@ -14,15 +14,10 @@
 // public external identifier (e.g. a GitHub numeric user id) the attacker pre-creates an account
 // that the victim's own, genuine future "Sign in with X" then silently logs into.
 //
-// This test drives the exact attack over raw HTTP against a running Zitadel instance:
-//
-//  1. authorize (create a V1 auth request)  ->  2. load login page (grab CSRF)
-//     ->  3. select the IDP (sets SelectedIDPConfigID)  ->  4. forge the not-found-option POST
-//
-// It then asserts, over gRPC, that NO user was created for the attacker's forged identity. Against
-// the unpatched code this fails (the forged account is created); against the fixed code it passes
-// (the request is rejected with Errors.ExternalIDP.NoExternalUserData). That is the red -> green
-// signal for the fix.
+// Login V1 is no longer mounted. Even with its former feature setting and an
+// unspecified application login version, authorization must create a V2 request.
+// The retired login and IDP routes must return 404, including a direct forged
+// registration POST. The account query then independently verifies no user was created.
 //
 // Note on setup: no real GitHub account or working OAuth app is needed. The exploit bypasses the
 // real OAuth round-trip entirely, so the IDP template only has to EXIST with creation allowed and
@@ -35,12 +30,10 @@ package login_test
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -73,20 +66,12 @@ func TestMain(m *testing.M) {
 	}())
 }
 
-// csrfTokenRegex extracts the gorilla/csrf hidden form field that the login templates embed via
-// {{ .CSRF }} (rendered as <input type="hidden" name="gorilla.csrf.Token" value="...">). The token
-// must be echoed back on every POST; the paired cookie travels automatically in the cookie jar.
-var csrfTokenRegex = regexp.MustCompile(`name="gorilla\.csrf\.Token"[^>]*value="([^"]*)"`)
-
-// TestExternalNotFoundOption_ForgedRegistration_IsRejected reproduces the core exploit and asserts
-// the fix rejects it. It is the end-to-end, behavioral red -> green test for GHSA-738m-7888-jfv8.
+// TestExternalNotFoundOption_ForgedRegistration_IsRejected ensures the retired
+// GHSA-738m-7888-jfv8 endpoint cannot be reopened or create an attacker-forged account.
 func TestExternalNotFoundOption_ForgedRegistration_IsRejected(t *testing.T) {
 	// --- Server setup (all via gRPC as the IAM owner) -------------------------------------------
 
-	// Force Login V1. Three things select V1 at auth-request creation (internal/api/oidc/auth_request.go):
-	// (a) the instance feature LoginV2.Required must be false, (b) the OIDC app's login version must be
-	// unspecified/V1, and (c) the authorize request must NOT carry the x-zitadel-login-client header.
-	// We pin (a) here explicitly so the test does not depend on the instance default.
+	// The former V1 feature setting must not reopen the retired login paths.
 	integration.EnsureInstanceFeature(t, CTX, Instance,
 		&feature.SetInstanceFeaturesRequest{LoginV2: &feature.LoginV2{Required: false}},
 		func(tt *assert.CollectT, got *feature.GetInstanceFeaturesResponse) {
@@ -94,8 +79,8 @@ func TestExternalNotFoundOption_ForgedRegistration_IsRejected(t *testing.T) {
 		},
 	)
 
-	// A project + OIDC app. loginVersion is left nil (unspecified => V1). The redirect URI only has to
-	// be registered; the attack never actually redeems a code there.
+	// Leave the application login version unspecified and omit the login-client
+	// header below. These former V1 selectors must still produce a V2 auth request.
 	redirectURI := "http://localhost:9999/callback"
 	project := Instance.CreateProject(CTX, t, Instance.DefaultOrg.GetId(), integration.RandString(10), false, false)
 	oidcApp, err := Instance.CreateOIDCClient(CTX, redirectURI, "", project.GetId(),
@@ -115,24 +100,19 @@ func TestExternalNotFoundOption_ForgedRegistration_IsRejected(t *testing.T) {
 
 	// --- Attacker HTTP client -------------------------------------------------------------------
 
-	// One shared cookie jar for the WHOLE flow. This is mandatory: the server issues a user-agent
-	// cookie (zitadel.useragent) on the authorize response and binds the created auth request to that
-	// user-agent id; getAuthRequest later looks it up by (authRequestID, userAgentID). A different jar
-	// (or no jar) would make the auth request unresolvable. The csrf cookie also lives here.
+	// Preserve any cookies from authorization, but do not follow redirects into the
+	// hosted Login V2 UI or the dummy external provider.
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 	httpClient := &http.Client{
 		Jar: jar,
-		// Never auto-follow redirects: we want to inspect each hop (and must NOT chase the IDP redirect
-		// out to the dummy example.com authorize URL in step 3).
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 	issuer := Instance.OIDCIssuer() // http://<instance-domain>:<port>
 
-	// Step 1: create a Login V1 auth request by hitting the OIDC authorize endpoint WITHOUT the
-	// login-client header. The response is a 302 to /ui/login/login?authRequestID=<id>; we extract id.
+	// Authorization must work and select V2 before probing the retired V1 routes.
 	authURL := issuer + "/oauth/v2/authorize?" + url.Values{
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
@@ -143,32 +123,24 @@ func TestExternalNotFoundOption_ForgedRegistration_IsRejected(t *testing.T) {
 		"code_challenge_method": {"S256"},
 	}.Encode()
 	loc := getLocation(t, httpClient, authURL)
-	authRequestID := loc.Query().Get(login.QueryAuthRequestID)
-	require.NotEmpty(t, authRequestID, "expected a V1 auth request id in the authorize redirect %q", loc.String())
+	authRequestID := requireV2AuthRequest(t, loc)
 
-	// Step 2: load the login page. This renders the login form and lets us scrape the CSRF token
-	// (valid for any subsequent POST in this session, since it is bound to the csrf cookie in the jar).
+	// The retired page cannot issue a V1 form or CSRF token.
 	loginPageURL := issuer + login.HandlerPrefix + login.EndpointLogin + "?" + login.QueryAuthRequestID + "=" + authRequestID
-	csrfToken := scrapeCSRF(t, httpClient, loginPageURL)
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodGet, loginPageURL, nil)
 
-	// Step 3: select the external IDP. handleExternalLogin -> handleIDP persists SelectedIDPConfigID on
-	// the auth request (SelectExternalIDP) and then 302-redirects toward the (dummy) IDP authorize URL,
-	// which we deliberately do not follow. This is the ONLY legitimate step the attacker performs; it
-	// requires no interaction with the real IDP.
+	// Direct provider selection must also be unavailable.
 	selectIDPURL := issuer + login.HandlerPrefix + login.EndpointExternalLogin + "?" +
 		login.QueryAuthRequestID + "=" + authRequestID + "&idpConfigID=" + idpID
-	resp := doGet(t, httpClient, selectIDPURL)
-	resp.Body.Close()
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodGet, selectIDPURL, nil)
 
-	// Step 4: the attack. POST forged "external account not found" data. Every external-* field below is
-	// attacker-controlled and, before the fix, was trusted verbatim to build the created user's identity.
-	// The fix must ignore them (authReq.LinkingUsers is empty here because no genuine callback happened)
-	// and reject the request.
+	// Submit the original forged identity payload directly despite the unavailable
+	// preceding pages. Require route retirement, not a CSRF or handler-level rejection.
 	forgedEmail := "attacker-" + integration.RandString(8) + "@evil.test"
 	forgedVictimID := "999999999" // e.g. a victim's public GitHub numeric user id
 	form := url.Values{
 		login.QueryAuthRequestID:   {authRequestID},
-		"gorilla.csrf.Token":       {csrfToken},
+		"gorilla.csrf.Token":       {"forged-csrf-token"},
 		"external-idp-config-id":   {idpID},          // attacker-controlled: which IDP the link is bound to
 		"external-idp-ext-user-id": {forgedVictimID}, // attacker-controlled: the identity being claimed
 		"external-email":           {forgedEmail},    // attacker-controlled: echoed "IDP" email
@@ -181,14 +153,7 @@ func TestExternalNotFoundOption_ForgedRegistration_IsRejected(t *testing.T) {
 		"terms-confirm":            {"true"},
 	}
 	postURL := issuer + login.HandlerPrefix + login.EndpointExternalNotFoundOption + "?autoregisterbutton=true"
-	body := doPostForm(t, httpClient, postURL, form)
-
-	// The fixed handler rejects with the LinkingUsers guard (zerrors id LOGIN-Dju3f,
-	// Errors.ExternalIDP.NoExternalUserData). We match the error code, which the error page renders
-	// verbatim regardless of the negotiated UI locale (the translated message text is locale-dependent
-	// and may fall back to the raw i18n key). This is an immediate, projection-lag-free signal.
-	assert.Contains(t, body, "LOGIN-Dju3f",
-		"forged registration should be rejected by the LinkingUsers guard; got a page without that rejection (attack likely succeeded)")
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodPost, postURL, form)
 
 	// No account may exist for the forged identity. Poll on the test goroutine for a window so a
 	// late-projected user still fails the test (assert.Never is unsafe here: its condition runs in a
@@ -219,30 +184,29 @@ func getLocation(t *testing.T, c *http.Client, rawURL string) *url.URL {
 	return loc
 }
 
-// scrapeCSRF GETs a rendered login page and returns its gorilla/csrf token.
-func scrapeCSRF(t *testing.T, c *http.Client, rawURL string) string {
+func requireV2AuthRequest(t *testing.T, location *url.URL) string {
 	t.Helper()
-	resp := doGet(t, c, rawURL)
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	m := csrfTokenRegex.FindStringSubmatch(string(b))
-	require.Len(t, m, 2, "could not find gorilla.csrf.Token on %q", rawURL)
-	return m[1]
+	require.Empty(t, location.Query().Get(login.QueryAuthRequestID), "authorization must not create a Login V1 request")
+	require.False(t, strings.HasPrefix(location.Path, login.HandlerPrefix), "authorization must not redirect to Login V1")
+	requestID := location.Query().Get("authRequest")
+	require.True(t, strings.HasPrefix(requestID, "V2_"), "expected a V2 auth request in %q", location.String())
+	return requestID
 }
 
-// doPostForm submits a urlencoded form and returns the response body as a string.
-func doPostForm(t *testing.T, c *http.Client, rawURL string, form url.Values) string {
+// requireRetiredLoginEndpoint distinguishes an unmounted route from a redirect,
+// CSRF failure, or a live handler rejecting the particular attack payload.
+func requireRetiredLoginEndpoint(t *testing.T, client *http.Client, method, rawURL string, form url.Values) {
 	t.Helper()
-	req, err := http.NewRequestWithContext(CTX, http.MethodPost, rawURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(CTX, method, rawURL, strings.NewReader(form.Encode()))
 	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.Do(req)
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	response, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	return string(b)
+	defer response.Body.Close()
+	require.Equal(t, http.StatusNotFound, response.StatusCode, "retired Login V1 route %s", rawURL)
+	require.Empty(t, response.Header.Get("Location"), "retired Login V1 routes must not redirect")
 }
 
 // pollFor runs check every tick until waitFor elapses (and once more at the deadline). check should
