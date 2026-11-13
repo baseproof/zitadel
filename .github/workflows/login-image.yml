@@ -131,12 +131,18 @@ jobs:
       # Nx graph and every build dependency are present.
       - run: pnpm install --frozen-lockfile
       - run: pnpm nx run @zitadel/api:build
+        id: issuer-build
       - run: go build ./... && go vet ./...
+      # Collect independent diagnostics after a successful application build.
+      # Failed checks still fail this job and prevent image publication.
       - run: pnpm nx run @zitadel/api:lint
+        if: ${{ !cancelled() && steps.issuer-build.outcome == 'success' }}
       - run: pnpm nx run @zitadel/api:test-unit --skip-nx-cache
+        if: ${{ !cancelled() && steps.issuer-build.outcome == 'success' }}
       # The existing target starts its PostgreSQL/Redis and instrumented API.
       # Its full suite includes login_v2_only_test.go against the running API.
       - run: pnpm nx run @zitadel/api:test-integration --skip-nx-cache
+        if: ${{ !cancelled() && steps.issuer-build.outcome == 'success' }}
       - name: Stop integration services
         if: always()
         run: pnpm nx run @zitadel/devcontainer:compose -- down --volumes

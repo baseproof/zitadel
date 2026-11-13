@@ -36,11 +36,12 @@ func assertInviteDestination(t *testing.T, ctx context.Context, paths *DefaultPa
 	template := paths.DefaultInviteURLTemplate(ctx)
 	parsed, err := url.Parse(template)
 	require.NoError(t, err)
-	if custom == "" {
+	switch custom {
+	case "":
 		require.Equal(t, "https://id.example.com/ui/v2/login/verify", parsed.Scheme+"://"+parsed.Host+parsed.Path)
-	} else if custom == "/custom" {
+	case "/custom":
 		require.Equal(t, "https://id.example.com/custom/verify", parsed.Scheme+"://"+parsed.Host+parsed.Path)
-	} else {
+	default:
 		require.Equal(t, "https://login.example.com/custom/verify", parsed.Scheme+"://"+parsed.Host+parsed.Path)
 	}
 	require.Equal(t, "true", parsed.Query().Get("invite"))
