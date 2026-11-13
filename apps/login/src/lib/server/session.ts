@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { isClassifiedError } from "@/lib/grpc/interceptors/error-classification";
 import { createLogger } from "@/lib/logger";
@@ -7,6 +7,7 @@ import {
   deleteSession,
   getLoginSettings,
   getSecuritySettings,
+  getSession,
   humanMFAInitSkipped,
   listAuthenticationMethodTypes,
   listUsers,
@@ -73,15 +74,19 @@ export async function skipMFAAndContinueWithNextUrl({
   return { error: "Could not skip MFA and continue" };
 }
 
-export type ContinueWithSessionCommand = Session & { requestId?: string };
+export type ContinueWithSessionCommand = { id: string; requestId?: string };
 
-export async function continueWithSession({ requestId, ...session }: ContinueWithSessionCommand) {
+export async function continueWithSession({ requestId, id }: ContinueWithSessionCommand) {
   const _headers = await headers();
   const { serviceConfig } = getServiceConfig(_headers);
 
   const t = await getTranslations("error");
 
-  if (!session.factors?.user) {
+  const cookie = await getSessionCookieById({ sessionId: id });
+  if (!cookie) return { error: t("couldNotContinueSession") };
+  const { session } = await getSession({ serviceConfig, sessionId: cookie.id, sessionToken: cookie.token });
+
+  if (!session?.factors?.user) {
     return { error: t("couldNotContinueSession") };
   }
 

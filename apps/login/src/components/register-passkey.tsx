@@ -1,7 +1,7 @@
 "use client";
 
 import { coerceToArrayBuffer, coerceToBase64Url } from "@/helpers/base64";
-import { registerPasskeyLink, verifyPasskeyRegistration } from "@/lib/server/passkeys";
+import { registerPasskeyLink, verifyPasskeyRegistration } from "@/lib/server/actions";
 import { DevicePhoneMobileIcon, FingerPrintIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";

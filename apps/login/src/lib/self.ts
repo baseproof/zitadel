@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { createUserServiceClient } from "@zitadel/client/v2";
 import { headers } from "next/headers";

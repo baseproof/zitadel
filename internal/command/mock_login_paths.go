@@ -68,6 +68,20 @@ func (mr *MockLoginPathsMockRecorder) DefaultEmailCodeURLTemplate(ctx any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEmailCodeURLTemplate", reflect.TypeOf((*MockLoginPaths)(nil).DefaultEmailCodeURLTemplate), ctx)
 }
 
+// DefaultInviteURLTemplate mocks base method.
+func (m *MockLoginPaths) DefaultInviteURLTemplate(ctx context.Context) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DefaultInviteURLTemplate", ctx)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// DefaultInviteURLTemplate indicates an expected call of DefaultInviteURLTemplate.
+func (mr *MockLoginPathsMockRecorder) DefaultInviteURLTemplate(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultInviteURLTemplate", reflect.TypeOf((*MockLoginPaths)(nil).DefaultInviteURLTemplate), ctx)
+}
+
 // DefaultPasskeySetURLTemplate mocks base method.
 func (m *MockLoginPaths) DefaultPasskeySetURLTemplate(ctx context.Context) string {
 	m.ctrl.T.Helper()

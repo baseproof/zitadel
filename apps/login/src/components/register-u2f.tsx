@@ -1,9 +1,8 @@
 "use client";
 
 import { coerceToArrayBuffer, coerceToBase64Url } from "@/helpers/base64";
-import { completeFlowOrGetUrl } from "@/lib/client";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { addU2F, verifyU2F } from "@/lib/server/u2f";
+import { addU2F, completeFlowOrGetUrl, verifyU2F } from "@/lib/server/actions";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { RegisterU2FResponse } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { useRouter } from "next/navigation";

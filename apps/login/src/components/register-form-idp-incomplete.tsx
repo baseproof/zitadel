@@ -1,7 +1,9 @@
 "use client";
 
+import { useTurnstile } from "./turnstile-provider";
+
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { registerUserAndLinkToIDP } from "@/lib/server/register";
+import { registerUserAndLinkToIDP } from "@/lib/server/actions";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -58,6 +60,7 @@ export function RegisterFormIDPIncomplete({
   });
 
   const t = useTranslations("register");
+  const turnstile = useTurnstile("signup");
   const router = useRouter();
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -68,6 +71,7 @@ export function RegisterFormIDPIncomplete({
     setLoading(true);
     try {
       const response = await registerUserAndLinkToIDP({
+        turnstileToken: await turnstile.getToken(),
         idpId: idpId,
         idpUserName: idpUserName ? idpUserName : values.username,
         idpUserId: idpUserId,
@@ -92,6 +96,7 @@ export function RegisterFormIDPIncomplete({
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       <form method="post" className="w-full">
         <div className="mb-4 grid grid-cols-1 gap-4">
           {!idpUserName && (

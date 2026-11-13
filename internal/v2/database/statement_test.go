@@ -1,9 +1,45 @@
 package database
 
 import (
+	"io"
 	"reflect"
 	"testing"
 )
+
+func TestStatement_WriteByte(t *testing.T) {
+	var stmt Statement
+	var writer io.ByteWriter = &stmt
+	for _, b := range []byte("SELECT $1") {
+		if err := writer.WriteByte(b); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertQuery(t, &stmt, wantQuery{query: "SELECT $1"})
+}
+
+func TestStatement_CopyAfterAppendPanics(t *testing.T) {
+	var stmt Statement
+	stmt.AppendArg("original")
+	copied := stmt
+	defer func() {
+		if got := recover(); got != "statement: illegal use of non-zero Builder copied by value" {
+			t.Errorf("unexpected panic: %v", got)
+		}
+	}()
+	copied.AppendArg("copy")
+}
+
+func TestStatement_ResetAllowsReuse(t *testing.T) {
+	var stmt Statement
+	stmt.WriteArgs("old")
+	stmt.Reset()
+	assertQuery(t, &stmt, wantQuery{})
+
+	copied := stmt
+	copied.WriteArgs("new")
+	assertQuery(t, &copied, wantQuery{query: "$1", args: []any{"new"}})
+	assertQuery(t, &stmt, wantQuery{})
+}
 
 func TestStatement_WriteArgs(t *testing.T) {
 	type args struct {

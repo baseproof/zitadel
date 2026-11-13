@@ -32,6 +32,7 @@ import {
   VerifyU2FRegistrationRequest,
 } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { getTranslations } from "next-intl/server";
+import "server-only";
 
 import { getUserAgent } from "./fingerprint";
 
@@ -42,6 +43,7 @@ import { Code, Interceptor } from "@connectrpc/connect";
 import { ErrorDetailSchema } from "@zitadel/proto/zitadel/message_pb";
 import { PromiseCache } from "./cache";
 import { createServiceForHost } from "./service";
+import { trustedServiceUrl } from "./trusted-service";
 
 const useCache = process.env.API_CACHE_ENABLED !== "false";
 
@@ -1377,6 +1379,7 @@ export type WithServiceConfig<T = {}> = T & {
 };
 
 export function createServerTransport(token: string, serviceConfig: ServiceConfig) {
+  const baseUrl = trustedServiceUrl(serviceConfig?.baseUrl);
   const authorizationInterceptor: Interceptor = (next) => (req) => {
     if (!req.header.get("Authorization")) {
       req.header.set("Authorization", `Bearer ${token}`);
@@ -1404,7 +1407,7 @@ export function createServerTransport(token: string, serviceConfig: ServiceConfi
 
   return createConnectTransport({
     httpVersion: "1.1",
-    baseUrl: serviceConfig.baseUrl,
+    baseUrl,
     interceptors: [otelGrpcInterceptor, errorClassificationInterceptor, authorizationInterceptor, headerInterceptor],
   });
 }

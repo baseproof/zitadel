@@ -1,8 +1,10 @@
 "use client";
 
+import { useTurnstile } from "./turnstile-provider";
+
 import { lowerCaseValidator, numberValidator, symbolValidator, upperCaseValidator } from "@/helpers/validators";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { registerUser } from "@/lib/server/register";
+import { registerUser } from "@/lib/server/actions";
 import { PasswordComplexitySettings } from "@zitadel/proto/zitadel/settings/v2/password_settings_pb";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -50,6 +52,7 @@ export function SetRegisterPasswordForm({
   });
 
   const t = useTranslations("register");
+  const turnstile = useTurnstile("signup");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -61,6 +64,7 @@ export function SetRegisterPasswordForm({
     setLoading(true);
     try {
       const response = await registerUser({
+        turnstileToken: await turnstile.getToken(),
         email: email,
         firstName: firstname,
         lastName: lastname,
@@ -99,6 +103,7 @@ export function SetRegisterPasswordForm({
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       <form method="post" className="w-full">
         <div className="mb-4 grid grid-cols-1 gap-4 pt-4">
           <input

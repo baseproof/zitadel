@@ -2,7 +2,6 @@ package saml
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/zitadel/saml/pkg/provider"
@@ -10,7 +9,6 @@ import (
 	"github.com/zitadel/zitadel/backend/v3/instrumentation/metrics"
 	http_utils "github.com/zitadel/zitadel/internal/api/http"
 	"github.com/zitadel/zitadel/internal/api/http/middleware"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	"github.com/zitadel/zitadel/internal/auth/repository"
 	"github.com/zitadel/zitadel/internal/command"
 	"github.com/zitadel/zitadel/internal/crypto"
@@ -61,7 +59,6 @@ func NewProvider(
 		targetEncAlg,
 		es,
 		projections,
-		fmt.Sprintf("%s%s?%s=", login.HandlerPrefix, login.EndpointLogin, login.QueryAuthRequestID),
 		conf.DefaultLoginURLV2,
 		ContextToIssuer,
 		httpClient,
@@ -124,7 +121,6 @@ func newStorage(
 	targetEncAlg crypto.EncryptionAlgorithm,
 	es *eventstore.Eventstore,
 	db *database.DB,
-	defaultLoginURL string,
 	defaultLoginURLV2 string,
 	contextToIssuer func(context.Context) string,
 	actionHttpClient *http.Client,
@@ -138,7 +134,6 @@ func newStorage(
 		repo:              repo,
 		command:           command,
 		query:             query,
-		defaultLoginURL:   defaultLoginURL,
 		defaultLoginURLv2: defaultLoginURLV2,
 		contextToIssuer:   contextToIssuer,
 		httpClient:        actionHttpClient,

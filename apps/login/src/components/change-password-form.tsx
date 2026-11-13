@@ -2,7 +2,7 @@
 
 import { lowerCaseValidator, numberValidator, symbolValidator, upperCaseValidator } from "@/helpers/validators";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { checkSessionAndSetPassword, sendPassword } from "@/lib/server/password";
+import { checkSessionAndSetPassword, sendPassword } from "@/lib/server/actions";
 import { create } from "@zitadel/client";
 import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
 import { PasswordComplexitySettings } from "@zitadel/proto/zitadel/settings/v2/password_settings_pb";
@@ -17,6 +17,7 @@ import { TextInput } from "./input";
 import { PasswordComplexity } from "./password-complexity";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
+import { useTurnstile } from "./turnstile-provider";
 
 type Inputs =
   | {
@@ -47,6 +48,7 @@ export function ChangePasswordForm({ passwordComplexitySettings, sessionId, logi
   });
 
   const t = useTranslations("password");
+  const turnstile = useTurnstile("login");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -55,15 +57,21 @@ export function ChangePasswordForm({ passwordComplexitySettings, sessionId, logi
   async function submitChange(values: Inputs) {
     setLoading(true);
 
-    const changeResponse = await checkSessionAndSetPassword({
-      sessionId,
-      currentPassword: values.currentPassword,
-      password: values.password,
-    }).catch(() => {
-      setError(t("change.errors.couldNotChangePassword"));
-      setLoading(false);
-      return;
-    });
+    const changeResponse = await turnstile
+      .getToken()
+      .then((turnstileToken) =>
+        checkSessionAndSetPassword({
+          turnstileToken,
+          sessionId,
+          currentPassword: values.currentPassword,
+          password: values.password,
+        }),
+      )
+      .catch(() => {
+        setError(t("change.errors.couldNotChangePassword"));
+        setLoading(false);
+        return;
+      });
 
     if (changeResponse && "error" in changeResponse && changeResponse.error) {
       setError(typeof changeResponse.error === "string" ? changeResponse.error : t("change.errors.unknownError"));
@@ -79,14 +87,19 @@ export function ChangePasswordForm({ passwordComplexitySettings, sessionId, logi
 
     await new Promise((resolve) => setTimeout(resolve, 1000)); // wait for a second, to prevent eventual consistency issues
 
-    const passwordResponse = await sendPassword({
-      loginName,
-      organization,
-      checks: create(ChecksSchema, {
-        password: { password: values.password },
-      }),
-      requestId,
-    })
+    const passwordResponse = await turnstile
+      .getToken()
+      .then((turnstileToken) =>
+        sendPassword({
+          turnstileToken,
+          loginName,
+          organization,
+          checks: create(ChecksSchema, {
+            password: { password: values.password },
+          }),
+          requestId,
+        }),
+      )
       .catch(() => {
         setError(t("change.errors.couldNotVerifyPassword"));
         return;
@@ -122,6 +135,7 @@ export function ChangePasswordForm({ passwordComplexitySettings, sessionId, logi
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       <form method="post" className="w-full">
         <div className="mb-4 grid grid-cols-1 gap-4 pt-4">
           <input

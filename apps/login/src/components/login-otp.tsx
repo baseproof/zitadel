@@ -1,11 +1,7 @@
 "use client";
 
-import { completeFlowOrGetUrl } from "@/lib/client";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { updateOrCreateSession } from "@/lib/server/session";
-import { create } from "@zitadel/client";
-import { RequestChallengesSchema } from "@zitadel/proto/zitadel/session/v2/challenge_pb";
-import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
+import { completeFlowOrGetUrl, updateOrCreateSession } from "@/lib/server/actions";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -17,6 +13,7 @@ import { Button, ButtonVariants } from "./button";
 import { CodeInput } from "./code-input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
+import { useTurnstile } from "./turnstile-provider";
 
 // either loginName or sessionId must be provided
 type Props = {
@@ -34,8 +31,9 @@ type Inputs = {
   code: string;
 };
 
-export function LoginOTP({ host, loginName, sessionId, requestId, organization, method, code, loginSettings }: Props) {
+export function LoginOTP({ loginName, sessionId, requestId, organization, method, code, loginSettings }: Props) {
   const t = useTranslations("otp");
+  const turnstile = useTurnstile("login");
 
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -62,32 +60,7 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
     error?: string;
     [key: string]: any;
   }> => {
-    let challenges;
-
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-
-    if (method === "email") {
-      challenges = create(RequestChallengesSchema, {
-        otpEmail: {
-          deliveryType: {
-            case: "sendCode",
-            value: host
-              ? {
-                  urlTemplate:
-                    `${host.includes("localhost") ? "http://" : "https://"}${host}${basePath}/otp/${method}?code={{.Code}}&userId={{.UserID}}&sessionId={{.SessionID}}` +
-                    (requestId ? `&requestId=${requestId}` : ""),
-                }
-              : {},
-          },
-        },
-      });
-    }
-
-    if (method === "sms") {
-      challenges = create(RequestChallengesSchema, {
-        otpSms: {},
-      });
-    }
+    if (method !== "email" && method !== "sms") return { error: t("errors.couldNotRequestChallenge") };
 
     let response;
     try {
@@ -95,7 +68,8 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
         loginName,
         sessionId,
         organization,
-        challenges,
+        operation: "otp-send",
+        method,
         requestId,
       });
     } catch {
@@ -107,7 +81,7 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
     }
 
     return response;
-  }, [method, host, requestId, loginName, sessionId, organization, t]);
+  }, [method, requestId, loginName, sessionId, organization, t]);
 
   useEffect(() => {
     if (!initialized.current && ["email", "sms"].includes(method) && !code) {
@@ -127,45 +101,26 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
 
   async function submitCode(values: Inputs, organization?: string) {
     setLoading(true);
-
-    let body: any = {
-      code: values.code,
-      method,
-    };
-
-    if (organization) {
-      body.organization = organization;
+    if (method !== "email" && method !== "sms" && method !== "time-based") {
+      setError(t("errors.couldNotVerifyCode"));
+      setLoading(false);
+      return;
     }
 
-    if (requestId) {
-      body.requestId = requestId;
-    }
-
-    let checks;
-
-    if (method === "sms") {
-      checks = create(ChecksSchema, {
-        otpSms: { code: values.code },
-      });
-    }
-    if (method === "email") {
-      checks = create(ChecksSchema, {
-        otpEmail: { code: values.code },
-      });
-    }
-    if (method === "time-based") {
-      checks = create(ChecksSchema, {
-        totp: { code: values.code },
-      });
-    }
-
-    const response = await updateOrCreateSession({
-      loginName,
-      sessionId,
-      organization,
-      checks,
-      requestId,
-    })
+    const response = await turnstile
+      .getToken()
+      .then((turnstileToken) =>
+        updateOrCreateSession({
+          loginName,
+          sessionId,
+          organization,
+          operation: "otp-verify",
+          code: values.code,
+          method,
+          turnstileToken,
+          requestId,
+        }),
+      )
       .catch(() => {
         setError(t("errors.couldNotVerifyCode"));
         return;
@@ -217,6 +172,7 @@ export function LoginOTP({ host, loginName, sessionId, requestId, organization, 
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       {error && (
         <div data-testid="error">
           <Alert>{error}</Alert>

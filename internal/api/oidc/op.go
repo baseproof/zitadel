@@ -2,7 +2,6 @@ package oidc
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -15,12 +14,9 @@ import (
 	"github.com/zitadel/zitadel/internal/api/assets"
 	http_utils "github.com/zitadel/zitadel/internal/api/http"
 	"github.com/zitadel/zitadel/internal/api/http/middleware"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	"github.com/zitadel/zitadel/internal/auth/repository"
-	"github.com/zitadel/zitadel/internal/cache"
 	"github.com/zitadel/zitadel/internal/command"
 	"github.com/zitadel/zitadel/internal/crypto"
-	"github.com/zitadel/zitadel/internal/domain/federatedlogout"
 	"github.com/zitadel/zitadel/internal/eventstore"
 	"github.com/zitadel/zitadel/internal/notification/handlers"
 	"github.com/zitadel/zitadel/internal/query"
@@ -78,7 +74,6 @@ type OPStorage struct {
 	command                           *command.Commands
 	query                             *query.Queries
 	eventstore                        *eventstore.Eventstore
-	defaultLoginURL                   string
 	defaultLoginURLV2                 string
 	defaultLogoutURLV2                string
 	defaultAccessTokenLifetime        time.Duration
@@ -88,7 +83,6 @@ type OPStorage struct {
 	authAlg                           crypto.AuthAlgorithm
 	assetAPIPrefix                    func(ctx context.Context) string
 	contextToIssuer                   func(context.Context) string
-	federateLogoutCache               cache.Cache[federatedlogout.Index, string, *federatedlogout.FederatedLogout]
 }
 
 // Provider is used to overload certain [op.Provider] methods
@@ -128,14 +122,13 @@ func NewServer(
 	accessHandler *middleware.AccessInterceptor,
 	fallbackLogger *slog.Logger,
 	hashConfig crypto.HashConfig,
-	federatedLogoutCache cache.Cache[federatedlogout.Index, string, *federatedlogout.FederatedLogout],
 	httpClient *http.Client,
 ) (*Server, error) {
 	opConfig, err := createOPConfig(config, defaultLogoutRedirectURI, cryptoKey)
 	if err != nil {
 		return nil, zerrors.ThrowInternal(err, "OIDC-EGrqd", "cannot create op config: %w")
 	}
-	storage := newStorage(config, command, query, repo, authAlg, es, ContextToIssuer, federatedLogoutCache)
+	storage := newStorage(config, command, query, repo, authAlg, es, ContextToIssuer)
 	keyCache := newPublicKeyCache(ctx, config.PublicKeyCacheMaxAge, queryKeyFunc(query))
 	accessTokenKeySet := newOidcKeySet(keyCache, withKeyExpiryCheck(true))
 	idTokenHintKeySet := newOidcKeySet(keyCache)
@@ -180,7 +173,6 @@ func NewServer(
 		command:                    command,
 		accessTokenKeySet:          accessTokenKeySet,
 		idTokenHintKeySet:          idTokenHintKeySet,
-		defaultLoginURL:            fmt.Sprintf("%s%s?%s=", login.HandlerPrefix, login.EndpointLogin, login.QueryAuthRequestID),
 		defaultLoginURLV2:          config.DefaultLoginURLV2,
 		defaultLogoutURLV2:         config.DefaultLogoutURLV2,
 		defaultAccessTokenLifetime: config.DefaultAccessTokenLifetime,
@@ -303,14 +295,12 @@ func newStorage(
 	authAlg crypto.AuthAlgorithm,
 	es *eventstore.Eventstore,
 	contextToIssuer func(context.Context) string,
-	federateLogoutCache cache.Cache[federatedlogout.Index, string, *federatedlogout.FederatedLogout],
 ) *OPStorage {
 	return &OPStorage{
 		repo:                              repo,
 		command:                           command,
 		query:                             query,
 		eventstore:                        es,
-		defaultLoginURL:                   fmt.Sprintf("%s%s?%s=", login.HandlerPrefix, login.EndpointLogin, login.QueryAuthRequestID),
 		defaultLoginURLV2:                 config.DefaultLoginURLV2,
 		defaultLogoutURLV2:                config.DefaultLogoutURLV2,
 		defaultAccessTokenLifetime:        config.DefaultAccessTokenLifetime,
@@ -320,7 +310,6 @@ func newStorage(
 		authAlg:                           authAlg,
 		assetAPIPrefix:                    assets.AssetAPI(),
 		contextToIssuer:                   contextToIssuer,
-		federateLogoutCache:               federateLogoutCache,
 	}
 }
 

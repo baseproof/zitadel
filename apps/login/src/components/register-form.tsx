@@ -1,7 +1,9 @@
 "use client";
 
+import { useTurnstile } from "./turnstile-provider";
+
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { registerUser } from "@/lib/server/register";
+import { registerUser } from "@/lib/server/actions";
 import { LegalAndSupportSettings } from "@zitadel/proto/zitadel/settings/v2/legal_settings_pb";
 import { LoginSettings, PasskeysType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { useTranslations } from "next-intl";
@@ -67,6 +69,7 @@ export function RegisterForm({
   });
 
   const t = useTranslations("register");
+  const turnstile = useTurnstile("signup");
 
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -90,6 +93,7 @@ export function RegisterForm({
     setLoading(true);
     try {
       const response = await registerUser({
+        turnstileToken: await turnstile.getToken(),
         email: values.email,
         firstName: values.firstname,
         lastName: values.lastname,
@@ -133,6 +137,7 @@ export function RegisterForm({
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       {/* Sent here by 01 with an email no account uses (02b). */}
       {email && !alreadyExists && (
         <div

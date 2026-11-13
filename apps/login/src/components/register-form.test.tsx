@@ -1,7 +1,8 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import { create } from "@zitadel/client";
 import { LegalAndSupportSettingsSchema } from "@zitadel/proto/zitadel/settings/v2/legal_settings_pb";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../test-mocks/render-with-turnstile";
 import { RegisterForm } from "./register-form";
 
 vi.mock("next/navigation", () => ({
@@ -12,11 +13,9 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/server/register", () => ({
+vi.mock("@/lib/server/actions", () => ({
   registerUser: vi.fn(),
-}));
 
-vi.mock("@/lib/client", () => ({
   handleServerActionResponse: vi.fn(),
 }));
 

@@ -5,9 +5,12 @@ import { LanguageProvider } from "@/components/language-provider";
 import { PhoneFooter } from "@/components/phone-footer";
 import { Skeleton } from "@/components/skeleton";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TurnstileProvider } from "@/components/turnstile-provider";
+import { getTurnstilePublicConfig } from "@/lib/server/turnstile";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import type { Metadata } from "next";
 import { getLocale, getTranslations } from "next-intl/server";
+import { headers } from "next/headers";
 import React, { Suspense } from "react";
 
 // Baseproof's favicons (cdn.baseproof.ai/web/favicons), served from public/
@@ -34,6 +37,9 @@ export async function generateMetadata(): Promise<Metadata> {
 // Microsoft's sign-in pages behave (checked 2026-10-29). The font is the
 // branding's (BrandingStyle); until it loads, the system's sans-serif.
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Keep the public sitekey runtime-configurable in the same immutable image.
+  await headers();
+  const turnstile = getTurnstilePublicConfig();
   const locale = await getLocale();
 
   return (
@@ -56,19 +62,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               }
             >
               <LanguageProvider>
-                {/* On a phone the page is the card's colour edge to edge, its content
+                <TurnstileProvider config={turnstile}>
+                  {/* On a phone the page is the card's colour edge to edge, its content
                     from the top; from 640px the card sits centred on the page's colour. */}
-                <BackgroundWrapper
-                  className={`sm:bg-background-light-600 sm:dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-start bg-[var(--bp-card)] sm:justify-center`}
-                >
-                  {/* The theme follows the system (branding's theme mode), so there is no switch.
+                  <BackgroundWrapper
+                    className={`sm:bg-background-light-600 sm:dark:bg-background-dark-600 relative flex min-h-screen flex-col justify-start bg-[var(--bp-card)] sm:justify-center`}
+                  >
+                    {/* The theme follows the system (branding's theme mode), so there is no switch.
                       On a phone the content fills the height down to the footer, so the page can
                       place its block in the space between the wordmark and the footer. */}
-                  <div className="relative mx-auto w-full max-w-[1100px] max-sm:flex max-sm:flex-1 max-sm:flex-col sm:py-8">
-                    <div className="max-sm:flex max-sm:flex-1 max-sm:flex-col">{children}</div>
-                  </div>
-                  <PhoneFooter />
-                </BackgroundWrapper>
+                    <div className="relative mx-auto w-full max-w-[1100px] max-sm:flex max-sm:flex-1 max-sm:flex-col sm:py-8">
+                      <div className="max-sm:flex max-sm:flex-1 max-sm:flex-col">{children}</div>
+                    </div>
+                    <PhoneFooter />
+                  </BackgroundWrapper>
+                </TurnstileProvider>
               </LanguageProvider>
             </Suspense>
           </Tooltip.Provider>

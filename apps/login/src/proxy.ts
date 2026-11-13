@@ -3,6 +3,7 @@ import { buildCSP } from "./lib/csp";
 import { applyCustomHeaders } from "./lib/custom-headers";
 import { createLogger } from "./lib/logger";
 import { getIframeOrigins } from "./lib/server/security-settings";
+import { isTurnstileEnabled } from "./lib/server/turnstile";
 import { getServiceConfig } from "./lib/service-url";
 
 const logger = createLogger("middleware");
@@ -25,6 +26,7 @@ export async function proxy(request: NextRequest) {
 
   const { serviceConfig } = getServiceConfig(request.headers);
   const { baseUrl, publicHost, instanceHost } = serviceConfig;
+  const turnstileEnabled = isTurnstileEnabled();
 
   // Build CSP headers using security settings fetched directly from the
   // ZITADEL API (no self-loopback through the load balancer).
@@ -36,7 +38,7 @@ export async function proxy(request: NextRequest) {
     try {
       const iframeOrigins = await getIframeOrigins(baseUrl, instanceHost, publicHost);
 
-      responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl, iframeOrigins }));
+      responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl, iframeOrigins, turnstileEnabled }));
 
       if (!iframeOrigins) {
         responseHeaders.set("X-Frame-Options", "deny");
@@ -45,11 +47,11 @@ export async function proxy(request: NextRequest) {
       logger.error("Failed to load security settings for CSP, using default CSP", {
         error: err instanceof Error ? err.message : String(err),
       });
-      responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl }));
+      responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl, turnstileEnabled }));
       responseHeaders.set("X-Frame-Options", "deny");
     }
   } else {
-    responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl }));
+    responseHeaders.set("Content-Security-Policy", buildCSP({ serviceUrl: baseUrl, turnstileEnabled }));
     responseHeaders.set("X-Frame-Options", "deny");
   }
 

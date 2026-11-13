@@ -4,12 +4,12 @@
 #
 # DESCRIPTION:
 #     Main's verified images, published once and promoted by digest. The run
-#     on a push to main is the one verification: each image job builds,
-#     smokes, then pushes the bytes it smoked; the promote job, which runs
-#     only when every verification job passed, names them as the release.
+#     on a push to main is the one verification: each image job builds and
+#     smokes, then preserves its image; the promote job, which runs only
+#     when every verification job passed, pushes and names those bytes.
 #
 #       release.sh push-verified LOCAL_IMAGE REPOSITORY
-#           An image job, after its last smoke: LOCAL_IMAGE (what the smoke
+#           After all verification jobs pass, LOCAL_IMAGE (what the smoke
 #           ran) becomes REPOSITORY:sha-$GITHUB_SHA. Write-once: a re-run
 #           finds the tag and leaves it, so the first verified bytes stay.
 #
@@ -123,7 +123,7 @@ promote() {
     repo="$(repository "${spec%%=*}")"
     file="${spec#*=}"
     d="$(digest_of "$repo:sha-$GITHUB_SHA")"
-    [ -n "$d" ] || die "no $repo:sha-$GITHUB_SHA although every verification job passed: its image job pushes it"
+    [ -n "$d" ] || die "no $repo:sha-$GITHUB_SHA although every verification job passed: run push-verified before promotion"
     v="$(version_at "$GITHUB_SHA" "$file")"
     [ -n "$v" ] || die "$file does not exist at $GITHUB_SHA"
     [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$file holds '$v' at $GITHUB_SHA, not MAJOR.MINOR.PATCH"

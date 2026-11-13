@@ -29,7 +29,6 @@ type Server struct {
 	accessTokenKeySet *oidcKeySet
 	idTokenHintKeySet *oidcKeySet
 
-	defaultLoginURL            string
 	defaultLoginURLV2          string
 	defaultLogoutURLV2         string
 	defaultAccessTokenLifetime time.Duration

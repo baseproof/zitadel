@@ -12,7 +12,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/server/oidc", () => ({
+vi.mock("@/lib/server/actions", () => ({
   getDeviceAuthorizationRequest: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ describe("DeviceCodeForm", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const oidc = await import("@/lib/server/oidc");
+    const oidc = await import("@/lib/server/actions");
     getDeviceAuthorizationRequest = vi.mocked(oidc.getDeviceAuthorizationRequest);
   });
 

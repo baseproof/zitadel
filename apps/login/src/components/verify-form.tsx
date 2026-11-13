@@ -3,7 +3,7 @@
 import { Alert, AlertType } from "@/components/alert";
 import { handleServerActionResponse } from "@/lib/client-utils";
 import { UNKNOWN_USER_ID } from "@/lib/constants";
-import { resendVerification, sendVerification } from "@/lib/server/verify";
+import { resendVerification, sendVerification } from "@/lib/server/actions";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
