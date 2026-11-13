@@ -22,6 +22,7 @@ import (
 
 	"github.com/zitadel/zitadel/internal/integration"
 	"github.com/zitadel/zitadel/pkg/grpc/admin"
+	session "github.com/zitadel/zitadel/pkg/grpc/session/v2"
 	"github.com/zitadel/zitadel/pkg/grpc/system"
 )
 
@@ -77,21 +78,25 @@ func TestServer_Limits_Block(t *testing.T) {
 				}
 			},
 		}, {
-			name: "login",
+			name: "login sessions v2",
+			testGrpc: func(tt assert.TestingT, expectBlocked bool) {
+				_, err := isoInstance.Client.SessionV2.ListSessions(iamOwnerCtx, &session.ListSessionsRequest{})
+				assertGrpcError(tt, err, expectBlocked)
+			},
 			testHttp: func(tt assert.TestingT) (*http.Request, error, func(assert.TestingT, *http.Response, bool)) {
 				req, err := http.NewRequestWithContext(
 					CTX,
-					"GET",
-					fmt.Sprintf("http://%s/ui/login/login/externalidp/callback", net.JoinHostPort(isoInstance.Domain, "8082")),
-					nil,
+					http.MethodPost,
+					fmt.Sprintf("http://%s/v2/sessions/search", net.JoinHostPort(isoInstance.Domain, "8082")),
+					strings.NewReader(`{}`),
 				)
-				return req, err, func(ttt assert.TestingT, response *http.Response, expectBlocked bool) {
-					// the login paths should return a redirect if the instance is blocked
-					if expectBlocked {
-						assert.Equal(ttt, http.StatusFound, response.StatusCode)
-					} else {
-						assertLimitResponse(ttt, response, false)
-					}
+				if err != nil {
+					return nil, err, nil
+				}
+				req.Header.Set("Authorization", isoInstance.BearerToken(iamOwnerCtx))
+				req.Header.Set("Content-Type", "application/json")
+				return req, nil, func(ttt assert.TestingT, response *http.Response, expectBlocked bool) {
+					assertLimitResponse(ttt, response, expectBlocked)
 					assertSetLimitingCookie(ttt, response, expectBlocked)
 				}
 			},
@@ -176,16 +181,24 @@ func testBlockingAPI(t *testing.T, tt *test, expectBlocked bool, isFirst bool) {
 	req, err, assertResponse := tt.testHttp(t)
 	require.NoError(t, err)
 	testHTTP := func(t require.TestingT) {
+		// Each existing propagation check needs a fresh body for POST endpoints.
+		request := req.Clone(req.Context())
+		if req.Body != nil && req.Body != http.NoBody {
+			require.NotNil(t, req.GetBody, "HTTP test requests with a body must be replayable")
+			var err error
+			request.Body, err = req.GetBody()
+			require.NoError(t, err)
+		}
 		resp, err := (&http.Client{
 			// Don't follow redirects
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
-		}).Do(req)
+		}).Do(request)
+		require.NoError(t, err)
 		defer func() {
 			require.NoError(t, resp.Body.Close())
 		}()
-		require.NoError(t, err)
 		assertResponse(t, resp, expectBlocked)
 	}
 	if isFirst {

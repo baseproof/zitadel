@@ -1,7 +1,7 @@
 //go:build integration
 
-// This file contains an end-to-end reproduction of GHSA-4hgj-wm6c-q7p2, an unauthenticated
-// account-rename in the server-rendered Login V1 UI.
+// This file checks that retiring Login V1 closes GHSA-4hgj-wm6c-q7p2, an
+// unauthenticated account-rename in the former server-rendered UI.
 //
 // The vulnerability: POST /ui/login/username/change (handleChangeUsername) renamed the account
 // identified by authReq.UserID without checking that the login flow had reached the change-username
@@ -11,24 +11,10 @@
 // authReq.UserID to that victim, and then POST a new username to rename the victim - including
 // instance admins - locking them out and freeing their login name for squatting.
 //
-// This test drives the exact attack over raw HTTP against a running Zitadel instance:
-//
-//  1. authorize (create a V1 auth request)  ->  2. load login page (grab CSRF)
-//     ->  3. POST the victim's login name (binds authReq.UserID, no factor)
-//     ->  4. POST a new username (the rename)
-//
-// It first proves the exploit precondition actually held - step 3 advanced the flow to the victim's
-// password step, i.e. authReq.UserID was bound with no factor - and then asserts, over gRPC, that
-// the victim's username is UNCHANGED. Against the unpatched code the second assertion fails (the
-// rename lands); against the fixed code it passes (the gate on ChangeUsernameStep rejects the
-// request before the command runs). That is the red -> green signal for the fix.
-//
-// The outcome assertion is behavioral (the account's username) rather than on the rendered page: the
-// fixed handler rejects by re-rendering the current step with a nil error, so there is no distinctive
-// error code to match, and the true security property is simply that no rename occurred. The step-3
-// precondition check guards against a false green: if any upstream hop silently broke (no V1 id,
-// wrong CSRF, rejected login name), the rename would never fire even against unpatched code and the
-// unchanged-username assertion would pass vacuously.
+// Authorization must select V2 even with the former V1 settings. The old login,
+// login-name and username-change routes must return 404. The account query then
+// independently verifies that directly posting the victim's name and a replacement
+// username did not change the victim's account, including after projection lag.
 //
 // Requires a running backend + database. Run with:
 //
@@ -55,15 +41,12 @@ import (
 	user "github.com/zitadel/zitadel/pkg/grpc/user/v2"
 )
 
-// TestChangeUsername_UnauthenticatedRename_IsRejected reproduces the core exploit and asserts the
-// fix rejects it. It is the end-to-end, behavioral red -> green test for GHSA-4hgj-wm6c-q7p2.
+// TestChangeUsername_UnauthenticatedRename_IsRejected ensures the retired
+// GHSA-4hgj-wm6c-q7p2 endpoint cannot be reopened or rename an account.
 func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 	// --- Server setup (all via gRPC as the IAM owner) -------------------------------------------
 
-	// Force Login V1. Three things select V1 at auth-request creation (internal/api/oidc/auth_request.go):
-	// (a) the instance feature LoginV2.Required must be false, (b) the OIDC app's login version must be
-	// unspecified/V1, and (c) the authorize request must NOT carry the x-zitadel-login-client header.
-	// We pin (a) here explicitly so the test does not depend on the instance default.
+	// The former V1 feature setting must not reopen the retired login paths.
 	integration.EnsureInstanceFeature(t, CTX, Instance,
 		&feature.SetInstanceFeaturesRequest{LoginV2: &feature.LoginV2{Required: false}},
 		func(tt *assert.CollectT, got *feature.GetInstanceFeaturesResponse) {
@@ -71,8 +54,8 @@ func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 		},
 	)
 
-	// A project + OIDC app. loginVersion is left nil (unspecified => V1). The redirect URI only has to
-	// be registered; the attack never actually redeems a code there.
+	// Leave the application login version unspecified and omit the login-client
+	// header below. These former V1 selectors must still produce a V2 auth request.
 	redirectURI := "http://localhost:9999/callback"
 	project := Instance.CreateProject(CTX, t, Instance.DefaultOrg.GetId(), integration.RandString(10), false, false)
 	oidcApp, err := Instance.CreateOIDCClient(CTX, redirectURI, "", project.GetId(),
@@ -87,11 +70,7 @@ func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 
 	// --- Attacker HTTP client -------------------------------------------------------------------
 
-	// One shared cookie jar for the WHOLE flow. This is mandatory: the server issues a user-agent
-	// cookie (zitadel.useragent) on the authorize response and binds the created auth request to that
-	// user-agent id; the loginname/username-change handlers later resolve the auth request by
-	// (authRequestID, userAgentID). A different jar (or no jar) would make it unresolvable. The csrf
-	// cookie also lives here.
+	// Preserve cookies from authorization without following the hosted V2 redirect.
 	jar, err := cookiejar.New(nil)
 	require.NoError(t, err)
 	httpClient := &http.Client{
@@ -103,8 +82,7 @@ func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 	}
 	issuer := Instance.OIDCIssuer() // http://<instance-domain>:<port>
 
-	// Step 1: create a Login V1 auth request by hitting the OIDC authorize endpoint WITHOUT the
-	// login-client header. The response is a 302 to /ui/login/login?authRequestID=<id>; we extract id.
+	// Authorization must work and select V2 before probing the retired V1 routes.
 	authURL := issuer + "/oauth/v2/authorize?" + url.Values{
 		"client_id":             {clientID},
 		"redirect_uri":          {redirectURI},
@@ -115,47 +93,30 @@ func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 		"code_challenge_method": {"S256"},
 	}.Encode()
 	loc := getLocation(t, httpClient, authURL)
-	authRequestID := loc.Query().Get(login.QueryAuthRequestID)
-	require.NotEmpty(t, authRequestID, "expected a V1 auth request id in the authorize redirect %q", loc.String())
+	authRequestID := requireV2AuthRequest(t, loc)
 
-	// Step 2: load the login page. This renders the login form and lets us scrape the CSRF token,
-	// valid for any subsequent POST in this session (it is bound to the csrf cookie in the jar).
+	// The retired page cannot issue a V1 form or CSRF token.
 	loginPageURL := issuer + login.HandlerPrefix + login.EndpointLogin + "?" + login.QueryAuthRequestID + "=" + authRequestID
-	csrfToken := scrapeCSRF(t, httpClient, loginPageURL)
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodGet, loginPageURL, nil)
 
-	// Step 3: the binding. POST the victim's login name. handleLoginNameCheck -> checkLoginName ->
-	// SetUserInfo binds authReq.UserID to the victim. NO factor is required - this is the whole point:
-	// an unauthenticated caller can point the auth request at any account by name alone.
+	// Submit the victim's login name directly. It must not start a V1 credential flow.
 	loginNameForm := url.Values{
 		login.QueryAuthRequestID: {authRequestID},
-		"gorilla.csrf.Token":     {csrfToken},
+		"gorilla.csrf.Token":     {"forged-csrf-token"},
 		"loginName":              {victimLoginName},
 	}
 	loginNameURL := issuer + login.HandlerPrefix + login.EndpointLoginName
-	loginNameBody := doPostForm(t, httpClient, loginNameURL, loginNameForm)
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodPost, loginNameURL, loginNameForm)
 
-	// Prove the precondition held: the login name resolved and bound authReq.UserID to the victim,
-	// advancing the flow to the password (first-factor) step. renderNextStep renders that step inline
-	// (200), so the response body is the password page: it carries a name="password" input and echoes
-	// the bound account's login name. Both markers are locale-independent. Without this check a broken
-	// upstream hop would make the later unchanged-username assertion pass vacuously - a false green even
-	// against unpatched code.
-	require.Contains(t, loginNameBody, `name="password"`,
-		"login-name POST did not advance to the password step; the victim was not bound (a later green would be vacuous)")
-	require.Contains(t, loginNameBody, victimUsername,
-		"password step is not bound to the victim; login-name binding did not take effect")
-
-	// Step 4: the attack. POST a new username. Before the fix this renamed the bound victim; the fix
-	// gates the handler on the current step being *domain.ChangeUsernameStep (only produced after the
-	// first factor and any required MFA), so this request is rejected.
+	// Submit the rename payload even though the preceding route is unavailable.
 	newUsername := "pwned-" + integration.RandString(8)
 	changeForm := url.Values{
 		login.QueryAuthRequestID: {authRequestID},
-		"gorilla.csrf.Token":     {csrfToken},
+		"gorilla.csrf.Token":     {"forged-csrf-token"},
 		"username":               {newUsername},
 	}
 	changeURL := issuer + login.HandlerPrefix + login.EndpointChangeUsername
-	doPostForm(t, httpClient, changeURL, changeForm)
+	requireRetiredLoginEndpoint(t, httpClient, http.MethodPost, changeURL, changeForm)
 
 	// The core security property: the victim's username must remain unchanged. Poll for a window so a
 	// vulnerable rename that projects late still fails the test (an immediate single read could race a
@@ -165,7 +126,7 @@ func TestChangeUsername_UnauthenticatedRename_IsRejected(t *testing.T) {
 
 // --- helpers specific to the username-change reproduction --------------------------------------
 //
-// doGet, getLocation, scrapeCSRF, doPostForm and the CTX/Instance globals are defined in
+// HTTP helpers and the CTX/Instance globals are defined in
 // external_login_test.go, which shares this package and build tag.
 
 // createVictim creates an active human user with the given username, a verified email and a password

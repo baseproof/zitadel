@@ -92,8 +92,8 @@ func TestServer_Restrictions_AllowedLanguages(t *testing.T) {
 	t.Run("the disallowed language is not listed in the discovery endpoint", func(tt *testing.T) {
 		awaitDiscoveryEndpoint(tt, ctx, instance.Domain, []string{defaultAndAllowedLanguage.String()}, []string{disallowedLanguage.String()})
 	})
-	t.Run("the login ui is rendered in the default language", func(tt *testing.T) {
-		awaitLoginUILanguage(tt, ctx, instance.Domain, disallowedLanguage, defaultAndAllowedLanguage, "Passwort")
+	t.Run("restricted languages cannot reopen the retired login ui", func(tt *testing.T) {
+		requireRetiredLoginUI(tt, ctx, instance.Domain, disallowedLanguage)
 	})
 	t.Run("preferred languages are not restricted by the supported languages", func(tt *testing.T) {
 		tt.Run("change user profile", func(ttt *testing.T) {
@@ -153,8 +153,8 @@ func TestServer_Restrictions_AllowedLanguages(t *testing.T) {
 		tt.Run("the previously disallowed language is listed in the discovery endpoint again", func(ttt *testing.T) {
 			awaitDiscoveryEndpoint(ttt, ctx, instance.Domain, []string{disallowedLanguage.String()}, nil)
 		})
-		tt.Run("the login ui is rendered in the previously disallowed language", func(ttt *testing.T) {
-			awaitLoginUILanguage(ttt, ctx, instance.Domain, disallowedLanguage, disallowedLanguage, "Contraseña")
+		tt.Run("allowing the language cannot reopen the retired login ui", func(ttt *testing.T) {
+			requireRetiredLoginUI(ttt, ctx, instance.Domain, disallowedLanguage)
 		})
 	})
 }
@@ -215,23 +215,19 @@ func awaitDiscoveryEndpoint(t *testing.T, ctx context.Context, domain string, co
 	)
 }
 
-func awaitLoginUILanguage(t *testing.T, ctx context.Context, domain string, acceptLanguage language.Tag, expectLang language.Tag, containsText string) {
-	retryDuration, tick := integration.WaitForAndTickWithMaxDuration(ctx, time.Minute)
-	require.EventuallyWithT(t, func(tt *assert.CollectT) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+domain+":8082/ui/login/register", nil)
-		req.Header.Set("Accept-Language", acceptLanguage.String())
-		require.NoError(tt, err)
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(tt, err)
-		assert.Equal(tt, http.StatusOK, resp.StatusCode)
-		body, err := io.ReadAll(resp.Body)
-		defer func() {
-			require.NoError(tt, resp.Body.Close())
-		}()
-		require.NoError(tt, err)
-		assert.Containsf(tt, string(body), containsText, "login ui language is in "+expectLang.String())
-	}, retryDuration, tick, "awaiting successful LoginUI in specific language failed",
-	)
+func requireRetiredLoginUI(t *testing.T, ctx context.Context, domain string, acceptLanguage language.Tag) {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+domain+":8082/ui/login/register", nil)
+	require.NoError(t, err)
+	req.Header.Set("Accept-Language", acceptLanguage.String())
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Empty(t, resp.Header.Get("Location"))
 }
 
 // We would love to use assert.Contains here, but it doesn't work with slices of strings
