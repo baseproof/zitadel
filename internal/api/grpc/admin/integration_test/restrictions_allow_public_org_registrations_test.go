@@ -3,12 +3,10 @@
 package admin_test
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,79 +22,54 @@ func TestServer_Restrictions_DisallowPublicOrgRegistration(t *testing.T) {
 	instance := integration.NewInstance(CTX)
 	regOrgUrl, err := url.Parse("http://" + instance.Domain + ":8082/ui/login/register/org")
 	require.NoError(t, err)
-	// The CSRF cookie must be sent with every request.
-	// We can simulate a browser session using a cookie jar.
-	jar, err := cookiejar.New(nil)
-	require.NoError(t, err)
-	browserSession := &http.Client{Jar: jar}
-	var csrfToken string
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
 	iamOwnerCtx := instance.WithAuthorization(CTX, integration.UserTypeIAMOwner)
 
-	t.Run("public org registration is allowed by default", func(tt *testing.T) {
-		csrfToken = awaitPubOrgRegAllowed(tt, iamOwnerCtx, instance.Client, browserSession, regOrgUrl)
+	t.Run("restriction defaults to false while Login V1 remains retired", func(tt *testing.T) {
+		awaitPublicOrgRestriction(tt, iamOwnerCtx, instance.Client, false)
+		requireRetiredPublicOrgRegistration(tt, iamOwnerCtx, client, regOrgUrl)
 	})
-	t.Run("disallowing public org registration disables the endpoints", func(tt *testing.T) {
+	t.Run("disallowing public org registration preserves retired endpoints", func(tt *testing.T) {
 		_, err = instance.Client.Admin.SetRestrictions(iamOwnerCtx, &admin.SetRestrictionsRequest{DisallowPublicOrgRegistration: gu.Ptr(true)})
 		require.NoError(tt, err)
-		awaitPubOrgRegDisallowed(tt, iamOwnerCtx, instance.Client, browserSession, regOrgUrl, csrfToken)
+		awaitPublicOrgRestriction(tt, iamOwnerCtx, instance.Client, true)
+		requireRetiredPublicOrgRegistration(tt, iamOwnerCtx, client, regOrgUrl)
 	})
-	t.Run("allowing public org registration again re-enables the endpoints", func(tt *testing.T) {
+	t.Run("clearing the restriction cannot reopen Login V1", func(tt *testing.T) {
 		_, err = instance.Client.Admin.SetRestrictions(iamOwnerCtx, &admin.SetRestrictionsRequest{DisallowPublicOrgRegistration: gu.Ptr(false)})
 		require.NoError(tt, err)
-		awaitPubOrgRegAllowed(tt, iamOwnerCtx, instance.Client, browserSession, regOrgUrl)
+		awaitPublicOrgRestriction(tt, iamOwnerCtx, instance.Client, false)
+		requireRetiredPublicOrgRegistration(tt, iamOwnerCtx, client, regOrgUrl)
 	})
 }
 
-// awaitPubOrgRegAllowed doesn't accept a CSRF token, as we expected it to always produce a new one
-func awaitPubOrgRegAllowed(t *testing.T, ctx context.Context, cc *integration.Client, client *http.Client, parsedURL *url.URL) string {
-	csrfToken := awaitGetSSRGetResponse(t, ctx, client, parsedURL, http.StatusOK)
-	awaitPostFormResponse(t, ctx, client, parsedURL, http.StatusOK, csrfToken)
-	restrictions, err := cc.Admin.GetRestrictions(ctx, &admin.GetRestrictionsRequest{})
-	require.NoError(t, err)
-	require.False(t, restrictions.DisallowPublicOrgRegistration)
-	return csrfToken
-}
-
-// awaitPubOrgRegDisallowed accepts an old CSRF token, as we don't expect to get a CSRF token from the GET request anymore
-func awaitPubOrgRegDisallowed(t *testing.T, ctx context.Context, cc *integration.Client, client *http.Client, parsedURL *url.URL, reuseOldCSRFToken string) {
-	awaitGetSSRGetResponse(t, ctx, client, parsedURL, http.StatusNotFound)
-	awaitPostFormResponse(t, ctx, client, parsedURL, http.StatusConflict, reuseOldCSRFToken)
-	restrictions, err := cc.Admin.GetRestrictions(ctx, &admin.GetRestrictionsRequest{})
-	require.NoError(t, err)
-	require.True(t, restrictions.DisallowPublicOrgRegistration)
-}
-
-// awaitGetSSRGetResponse cuts the CSRF token from the response body if it exists
-func awaitGetSSRGetResponse(t *testing.T, ctx context.Context, client *http.Client, parsedURL *url.URL, expectCode int) string {
-	var csrfToken []byte
+func awaitPublicOrgRestriction(t *testing.T, ctx context.Context, cc *integration.Client, disallowed bool) {
+	t.Helper()
 	retryDuration, tick := integration.WaitForAndTickWithMaxDuration(ctx, time.Minute)
-	require.EventuallyWithT(t,
-		func(tt *assert.CollectT) {
-			resp, err := client.Get(parsedURL.String())
-			require.NoError(tt, err)
-			body, err := io.ReadAll(resp.Body)
-			require.NoError(tt, err)
-			searchField := `<input type="hidden" name="gorilla.csrf.Token" value="`
-			_, after, hasCsrfToken := bytes.Cut(body, []byte(searchField))
-			if hasCsrfToken {
-				csrfToken, _, _ = bytes.Cut(after, []byte(`">`))
-			}
-			assert.Equal(tt, resp.StatusCode, expectCode)
-		}, retryDuration, tick, "awaiting successful get SSR get response failed",
-	)
-	return string(csrfToken)
+	require.EventuallyWithT(t, func(tt *assert.CollectT) {
+		restrictions, err := cc.Admin.GetRestrictions(ctx, &admin.GetRestrictionsRequest{})
+		require.NoError(tt, err)
+		assert.Equal(tt, disallowed, restrictions.DisallowPublicOrgRegistration)
+	}, retryDuration, tick, "awaiting public organization restriction failed")
 }
 
-// awaitPostFormResponse needs a valid CSRF token to make it to the actual endpoint implementation and get the expected status code
-func awaitPostFormResponse(t *testing.T, ctx context.Context, client *http.Client, parsedURL *url.URL, expectCode int, csrfToken string) {
-	retryDuration, tick := integration.WaitForAndTickWithMaxDuration(ctx, time.Minute)
-	require.EventuallyWithT(t,
-		func(tt *assert.CollectT) {
-			resp, err := client.PostForm(parsedURL.String(), url.Values{
-				"gorilla.csrf.Token": {csrfToken},
-			})
-			require.NoError(tt, err)
-			assert.Equal(tt, resp.StatusCode, expectCode)
-		}, retryDuration, tick, "awaiting successful Post Form failed",
-	)
+// The compatibility setting remains readable and writable, but neither value may
+// remount the retired Login V1 organization-registration form or submission route.
+func requireRetiredPublicOrgRegistration(t *testing.T, ctx context.Context, client *http.Client, parsedURL *url.URL) {
+	t.Helper()
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		t.Run(method, func(t *testing.T) {
+			form := url.Values{"gorilla.csrf.Token": {"forged-csrf-token"}}
+			req, err := http.NewRequestWithContext(ctx, method, parsedURL.String(), strings.NewReader(form.Encode()))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+			require.Equal(t, http.StatusNotFound, resp.StatusCode)
+			require.Empty(t, resp.Header.Get("Location"))
+		})
+	}
 }

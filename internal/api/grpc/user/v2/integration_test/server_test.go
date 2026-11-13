@@ -32,7 +32,9 @@ var (
 
 func TestMain(m *testing.M) {
 	os.Exit(func() int {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		// CI run 43500231769 exhausted the shared 15m context after 907s.
+		// Match the integration runner's 60m package timeout without retries.
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
 		CTX = ctx
 
