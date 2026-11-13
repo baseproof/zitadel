@@ -299,8 +299,8 @@ func Test_database_CreateKeys(t *testing.T) {
 			args{
 				keys: []*crypto.Key{
 					{
-						"id1",
-						"key1",
+						ID:    "id1",
+						Value: "key1",
 					},
 				},
 			},
@@ -324,8 +324,8 @@ func Test_database_CreateKeys(t *testing.T) {
 			args{
 				keys: []*crypto.Key{
 					{
-						"id1",
-						"key1",
+						ID:    "id1",
+						Value: "key1",
 					},
 				},
 			},
@@ -351,8 +351,8 @@ func Test_database_CreateKeys(t *testing.T) {
 			args{
 				keys: []*crypto.Key{
 					{
-						"id1",
-						"key1",
+						ID:    "id1",
+						Value: "key1",
 					},
 				},
 			},
@@ -376,12 +376,12 @@ func Test_database_CreateKeys(t *testing.T) {
 			args{
 				keys: []*crypto.Key{
 					{
-						"id1",
-						"key1",
+						ID:    "id1",
+						Value: "key1",
 					},
 					{
-						"id2",
-						"key2",
+						ID:    "id2",
+						Value: "key2",
 					},
 				},
 			},
