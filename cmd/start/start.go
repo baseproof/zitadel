@@ -711,6 +711,7 @@ func startAPIs(
 		return nil, fmt.Errorf("unable to start management console: %w", err)
 	}
 	apis.RegisterHandlerOnPrefix(path.HandlerPrefix, c)
+	apis.HandleFunc("/", instanceInterceptor.Handler(http.HandlerFunc(config.Login.DefaultPaths.RedirectToLogin)).ServeHTTP)
 	apis.HandleFunc(login.EndpointDeviceAuth, instanceInterceptor.Handler(http.HandlerFunc(config.Login.DefaultPaths.RedirectDeviceAuthorization)).ServeHTTP)
 
 	// After OIDC provider so that the callback endpoint can be used

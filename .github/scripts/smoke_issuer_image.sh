@@ -42,6 +42,11 @@ curl --fail --silent --show-error --retry 60 --retry-connrefused --retry-delay 2
 docker cp "$container:/app/VERSION" "$version_file"
 cmp apps/api/VERSION "$version_file"
 
+target="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}' "$origin/")"
+test "$target" = "302 $origin/ui/v2/login/"
+status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' -X POST "$origin/")"
+test "$status" = 405
+
 for path in /ui/login/ /ui/login/login /ui/login/register /ui/login/password /ui/login/device; do
   for method in GET POST; do
     status="$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' -X "$method" "$origin$path")"

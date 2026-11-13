@@ -24,7 +24,6 @@ import (
 	"github.com/zitadel/zitadel/internal/api/grpc/server/connect_middleware"
 	http_util "github.com/zitadel/zitadel/internal/api/http"
 	http_mw "github.com/zitadel/zitadel/internal/api/http/middleware"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	"github.com/zitadel/zitadel/internal/crypto"
 	"github.com/zitadel/zitadel/internal/i18n"
 	"github.com/zitadel/zitadel/internal/query"
@@ -152,7 +151,6 @@ func New(
 	api.registerHealthServer()
 
 	api.RegisterHandlerOnPrefix("/debug", api.healthHandler())
-	api.router.Handle("/", http.RedirectHandler(login.HandlerPrefix, http.StatusFound))
 
 	return api, nil
 }
