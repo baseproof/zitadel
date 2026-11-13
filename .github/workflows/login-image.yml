@@ -26,7 +26,7 @@ jobs:
 
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       # The base path is baked into the build (next.config.mjs reads it and
       # has no default); set for the whole job so every build Nx runs, the
@@ -54,6 +54,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm nx run @zitadel/login:lint
       - run: pnpm nx run @zitadel/login:test-unit
+      - run: pnpm nx run @zitadel/login:test-dockerized --skip-nx-cache
       - run: pnpm nx run @zitadel/login:build --skip-nx-cache
         env:
           TURNSTILE_ENABLED: "true"

@@ -54,6 +54,7 @@ end
 
 login = jobs.fetch('image')
 login_commands = commands(login)
+check(login_commands.include?('@zitadel/login:test-dockerized --skip-nx-cache'), 'Login container tests must execute')
 %w[TURNSTILE_SECRET_KEY ZITADEL_SERVICE_USER_TOKEN ZITADEL_SESSION_COOKIE_SECRET].each do |name|
   check(login.fetch('env').fetch(name).start_with?('ci-build-'), "#{name} needs a synthetic build sentinel")
 end
