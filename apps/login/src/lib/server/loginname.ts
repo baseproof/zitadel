@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { isClassifiedError } from "@/lib/grpc/interceptors/error-classification";
 import { createLogger } from "@/lib/logger";

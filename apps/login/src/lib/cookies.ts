@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { timestampDate, timestampFromMs } from "@zitadel/client";
 import { cookies } from "next/headers";

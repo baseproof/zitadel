@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { getSession, registerU2F, verifyU2FRegistration } from "@/lib/zitadel";
 import { create } from "@zitadel/client";

@@ -1,8 +1,7 @@
 "use client";
 
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { sendLoginname } from "@/lib/server/loginname";
-import { clearSession, continueWithSession, ContinueWithSessionCommand } from "@/lib/server/session";
+import { clearSession, continueWithSession, sendLoginname } from "@/lib/server/actions";
 import { XCircleIcon } from "@heroicons/react/24/outline";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { Timestamp, timestampDate } from "@zitadel/client";
@@ -76,12 +75,7 @@ export function SessionItem({ session, reload, requestId }: { session: Session; 
           <button
             onClick={async () => {
               if (valid && session?.factors?.user) {
-                const sessionPayload: ContinueWithSessionCommand = session;
-                if (requestId) {
-                  sessionPayload.requestId = requestId;
-                }
-
-                const callbackResponse = await continueWithSession(sessionPayload);
+                const callbackResponse = await continueWithSession({ id: session.id, requestId });
 
                 handleServerActionResponse(callbackResponse, router, setSamlData, (e) => setError(e));
               } else if (session.factors?.user) {

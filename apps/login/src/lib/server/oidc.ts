@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { getAllSessions } from "@/lib/cookies";
 import { createLogger } from "@/lib/logger";

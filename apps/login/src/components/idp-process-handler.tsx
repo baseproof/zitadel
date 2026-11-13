@@ -1,12 +1,14 @@
 "use client";
 
-import { processIDPCallback } from "@/lib/server/idp-intent";
+import { processIDPCallback } from "@/lib/server/actions";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "./alert";
 import { AutoSubmitForm } from "./auto-submit-form";
+import { Button } from "./button";
 import { Spinner } from "./spinner";
+import { useTurnstile } from "./turnstile-provider";
 
 type Props = {
   provider: string;
@@ -36,6 +38,9 @@ export function IdpProcessHandler({
   postErrorRedirectUrl,
 }: Props) {
   const t = useTranslations("idp");
+  const loginname = useTranslations("loginname");
+  const { getToken, widget } = useTurnstile("signup");
+  const [attempt, setAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [samlData, setSamlData] = useState<{ url: string; fields: Record<string, string> } | null>(null);
@@ -50,18 +55,20 @@ export function IdpProcessHandler({
 
     executedRef.current = true;
 
-    console.log("[IDP Process Handler] Starting IDP callback processing from client");
-
-    processIDPCallback({
-      provider,
-      id,
-      token,
-      requestId,
-      organization,
-      sessionId,
-      linkFingerprint,
-      postErrorRedirectUrl,
-    })
+    getToken()
+      .then((turnstileToken) =>
+        processIDPCallback({
+          turnstileToken,
+          provider,
+          id,
+          token,
+          requestId,
+          organization,
+          sessionId,
+          linkFingerprint,
+          postErrorRedirectUrl,
+        }),
+      )
       .then((result) => {
         if (result.error) {
           console.error("[IDP Process Handler] Error:", result.error);
@@ -70,13 +77,12 @@ export function IdpProcessHandler({
           return;
         }
 
-        if (result.redirect) {
-          console.log("[IDP Process Handler] Redirecting to:", result.redirect);
+        if ("redirect" in result && result.redirect) {
           router.push(result.redirect);
           return;
         }
 
-        if (result.samlData) {
+        if ("samlData" in result && result.samlData) {
           console.log("[IDP Process Handler] Received samlData, rendering AutoSubmitForm");
           setSamlData(result.samlData);
           setLoading(false);
@@ -91,10 +97,25 @@ export function IdpProcessHandler({
         setError(err instanceof Error ? err.message : t("processing.unexpectedError"));
         setLoading(false);
       });
-  }, [provider, id, token, requestId, organization, link, sessionId, linkFingerprint, postErrorRedirectUrl, router, t]);
+  }, [
+    provider,
+    id,
+    token,
+    requestId,
+    organization,
+    link,
+    sessionId,
+    linkFingerprint,
+    postErrorRedirectUrl,
+    router,
+    t,
+    getToken,
+    attempt,
+  ]);
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex flex-col items-center justify-center">
+      {widget}
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
       {loading && (
         <div className="flex flex-col items-center space-y-4">
@@ -105,6 +126,17 @@ export function IdpProcessHandler({
       {error && (
         <div className="max-w-md py-4">
           <Alert>{error}</Alert>
+          <Button
+            type="button"
+            onClick={() => {
+              executedRef.current = false;
+              setError(null);
+              setLoading(true);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            {loginname("tryAgain")}
+          </Button>
         </div>
       )}
     </div>

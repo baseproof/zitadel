@@ -1,5 +1,6 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../test-mocks/render-with-turnstile";
 import { RegisterFormIDPIncomplete } from "./register-form-idp-incomplete";
 
 vi.mock("next/navigation", () => ({
@@ -10,11 +11,9 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/server/register", () => ({
+vi.mock("@/lib/server/actions", () => ({
   registerUserAndLinkToIDP: vi.fn(),
-}));
 
-vi.mock("@/lib/client", () => ({
   handleServerActionResponse: vi.fn(),
 }));
 

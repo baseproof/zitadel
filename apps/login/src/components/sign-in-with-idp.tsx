@@ -1,7 +1,7 @@
 "use client";
 
 import { idpTypeToSlug } from "@/lib/idp";
-import { redirectToIdp } from "@/lib/server/idp";
+import { redirectToIdp } from "@/lib/server/actions";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { IdentityProvider, IdentityProviderType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { clsx } from "clsx";

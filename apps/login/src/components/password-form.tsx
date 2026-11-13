@@ -1,7 +1,9 @@
 "use client";
 
+import { useTurnstile } from "./turnstile-provider";
+
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { resetPassword, sendPassword } from "@/lib/server/password";
+import { resetPassword, sendPassword } from "@/lib/server/actions";
 import { create } from "@zitadel/client";
 import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
@@ -45,6 +47,7 @@ export function PasswordForm({ loginSettings, loginName, organization, defaultOr
   });
 
   const t = useTranslations("password");
+  const turnstile = useTurnstile("login");
 
   const [info, setInfo] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -60,6 +63,7 @@ export function PasswordForm({ loginSettings, loginName, organization, defaultOr
 
     try {
       const response = await sendPassword({
+        turnstileToken: await turnstile.getToken(),
         loginName,
         organization,
         defaultOrganization,
@@ -154,6 +158,7 @@ export function PasswordForm({ loginSettings, loginName, organization, defaultOr
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       {notice === "noPasskey" && (
         <div className="mb-6">
           <Alert type={AlertType.INFO} title={t("verify.noPasskey.title")}>

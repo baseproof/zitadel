@@ -2,7 +2,7 @@
 
 import { lowerCaseValidator, numberValidator, symbolValidator, upperCaseValidator } from "@/helpers/validators";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { changePassword, resetPassword, sendPassword } from "@/lib/server/password";
+import { changePassword, resetPassword, sendPassword } from "@/lib/server/actions";
 import { create } from "@zitadel/client";
 import { ChecksSchema } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
 import { PasswordComplexitySettings } from "@zitadel/proto/zitadel/settings/v2/password_settings_pb";
@@ -19,6 +19,7 @@ import { TextInput } from "./input";
 import { PasswordComplexity } from "./password-complexity";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
+import { useTurnstile } from "./turnstile-provider";
 
 type Inputs =
   | {
@@ -68,6 +69,7 @@ export function SetPasswordForm({
   });
 
   const t = useTranslations("password");
+  const turnstile = useTurnstile("login");
 
   // A reset asks for its code first (baseproof/legal-agents#120); the new
   // password's fields show once a code is entered. Zitadel checks the code
@@ -155,18 +157,24 @@ export function SetPasswordForm({
 
     await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for a second to avoid eventual consistency issues with an initial password being set
 
-    const passwordResponse = await sendPassword({
-      loginName,
-      organization,
-      checks: create(ChecksSchema, {
-        password: { password: values.password },
-      }),
-      requestId,
-    }).catch(() => {
-      setError(t("set.errors.couldNotVerifyPassword"));
-      setLoading(false);
-      return;
-    });
+    const passwordResponse = await turnstile
+      .getToken()
+      .then((turnstileToken) =>
+        sendPassword({
+          turnstileToken,
+          loginName,
+          organization,
+          checks: create(ChecksSchema, {
+            password: { password: values.password },
+          }),
+          requestId,
+        }),
+      )
+      .catch(() => {
+        setError(t("set.errors.couldNotVerifyPassword"));
+        setLoading(false);
+        return;
+      });
 
     setLoading(false);
     handleServerActionResponse(passwordResponse as any, router, setSamlData, setError);
@@ -289,6 +297,7 @@ export function SetPasswordForm({
   return (
     <>
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       {errorBanner}
       <form method="post" className="flex w-full flex-col" noValidate onSubmit={handleSubmit(submitPassword)}>
         <input

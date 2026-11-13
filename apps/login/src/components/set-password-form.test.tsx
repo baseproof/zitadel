@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { create } from "@zitadel/client";
 import { PasswordComplexitySettingsSchema } from "@zitadel/proto/zitadel/settings/v2/password_settings_pb";
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../test-mocks/render-with-turnstile";
 import { SetPasswordForm } from "./set-password-form";
 
 vi.mock("next/navigation", () => ({
@@ -12,13 +13,11 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/server/password", () => ({
+vi.mock("@/lib/server/actions", () => ({
   changePassword: vi.fn(),
   resetPassword: vi.fn(),
   sendPassword: vi.fn(),
-}));
 
-vi.mock("@/lib/client", () => ({
   handleServerActionResponse: vi.fn(),
 }));
 
@@ -107,7 +106,7 @@ describe("SetPasswordForm", () => {
     });
 
     test("brings the code step back when Zitadel refuses the code", async () => {
-      const { changePassword } = await import("@/lib/server/password");
+      const { changePassword } = await import("@/lib/server/actions");
       vi.mocked(changePassword).mockResolvedValue({ error: "set.errors.codeRejected", field: "code" });
       renderReset();
       fireEvent.change(screen.getByTestId("code-text-input"), { target: { value: "AB3CD5" } });

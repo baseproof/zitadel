@@ -1,6 +1,6 @@
 "use client";
 
-import { createNewSessionForLDAP } from "@/lib/server/idp";
+import { createNewSessionForLDAP } from "@/lib/server/actions";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -10,6 +10,7 @@ import { Button, ButtonVariants } from "./button";
 import { TextInput } from "./input";
 import { Spinner } from "./spinner";
 import { Translated } from "./translated";
+import { useTurnstile } from "./turnstile-provider";
 
 type Inputs = {
   loginName: string;
@@ -40,6 +41,7 @@ export function LDAPUsernamePasswordForm({
   });
 
   const t = useTranslations("ldap");
+  const turnstile = useTurnstile("login");
 
   const [error, setError] = useState<string>("");
 
@@ -51,17 +53,22 @@ export function LDAPUsernamePasswordForm({
     setError("");
     setLoading(true);
 
-    const response = await createNewSessionForLDAP({
-      idpId: idpId,
-      username: values.loginName,
-      password: values.password,
-      link: link,
-      requestId,
-      organization,
-      postErrorRedirectUrl,
-      linkToSessionId,
-      linkFingerprint,
-    })
+    const response = await turnstile
+      .getToken()
+      .then((turnstileToken) =>
+        createNewSessionForLDAP({
+          turnstileToken,
+          idpId: idpId,
+          username: values.loginName,
+          password: values.password,
+          link: link,
+          requestId,
+          organization,
+          postErrorRedirectUrl,
+          linkToSessionId,
+          linkFingerprint,
+        }),
+      )
       .catch(() => {
         setError("Could not start LDAP flow");
         return;
@@ -82,6 +89,7 @@ export function LDAPUsernamePasswordForm({
 
   return (
     <form method="post" className="w-full space-y-4">
+      {turnstile.widget}
       <TextInput
         type="text"
         autoComplete="username"

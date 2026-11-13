@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../test-mocks/render-with-turnstile";
 import { LoginOTP } from "./login-otp";
 
 vi.mock("next/navigation", () => ({
@@ -10,11 +11,9 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-vi.mock("@/lib/server/session", () => ({
+vi.mock("@/lib/server/actions", () => ({
   updateOrCreateSession: vi.fn(),
-}));
 
-vi.mock("@/lib/client", () => ({
   handleServerActionResponse: vi.fn(),
   completeFlowOrGetUrl: vi.fn(),
 }));
@@ -24,7 +23,7 @@ describe("LoginOTP", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    const { updateOrCreateSession } = await import("@/lib/server/session");
+    const { updateOrCreateSession } = await import("@/lib/server/actions");
     mockUpdateOrCreateSession = vi.mocked(updateOrCreateSession);
   });
 

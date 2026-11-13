@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { authorizeOrDenyDeviceAuthorization, getDeviceAuthorizationRequest } from "@/lib/zitadel";
 import { getTranslations } from "next-intl/server";

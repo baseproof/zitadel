@@ -1,7 +1,7 @@
 "use client";
 
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { skipMFAAndContinueWithNextUrl } from "@/lib/server/session";
+import { skipMFAAndContinueWithNextUrl } from "@/lib/server/actions";
 import { LoginSettings, SecondFactorType } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { AuthenticationMethodType } from "@zitadel/proto/zitadel/user/v2/user_service_pb";
 import { useRouter } from "next/navigation";

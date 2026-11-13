@@ -1,7 +1,7 @@
 "use client";
 
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { sendLoginname } from "@/lib/server/loginname";
+import { sendLoginname } from "@/lib/server/actions";
 import { FingerPrintIcon } from "@heroicons/react/24/outline";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { UserRoundKey } from "lucide-react";

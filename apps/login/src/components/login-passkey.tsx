@@ -1,11 +1,11 @@
 "use client";
 
+import { useTurnstile } from "./turnstile-provider";
+
 import { coerceToArrayBuffer, coerceToBase64Url } from "@/helpers/base64";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { sendPasskey } from "@/lib/server/passkeys";
-import { updateOrCreateSession } from "@/lib/server/session";
-import { create, JsonObject } from "@zitadel/client";
-import { RequestChallengesSchema, UserVerificationRequirement } from "@zitadel/proto/zitadel/session/v2/challenge_pb";
+import { sendPasskey, updateOrCreateSession } from "@/lib/server/actions";
+import { JsonObject } from "@zitadel/client";
 import { Checks } from "@zitadel/proto/zitadel/session/v2/session_service_pb";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
   const [samlData, setSamlData] = useState<{ url: string; fields: Record<string, string> } | null>(null);
 
   const t = useTranslations("passkey");
+  const turnstile = useTurnstile("login");
   const router = useRouter();
 
   const initialized = useRef(false);
@@ -42,7 +43,10 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
       setLoading(true);
       updateOrCreateSessionForChallenge()
         .then((response) => {
-          const pK = response?.challenges?.webAuthN?.publicKeyCredentialRequestOptions?.publicKey;
+          const pK =
+            response && "challenges" in response
+              ? response.challenges?.webAuthN?.publicKeyCredentialRequestOptions?.publicKey
+              : undefined;
 
           if (!pK) {
             setError(t("verify.errors.couldNotRequestChallenge"));
@@ -70,23 +74,15 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function updateOrCreateSessionForChallenge(
-    userVerificationRequirement: number = login
-      ? UserVerificationRequirement.REQUIRED
-      : UserVerificationRequirement.DISCOURAGED,
-  ) {
+  async function updateOrCreateSessionForChallenge() {
     setError("");
     setLoading(true);
     const sessionResponse = await updateOrCreateSession({
       loginName,
       sessionId,
       organization,
-      challenges: create(RequestChallengesSchema, {
-        webAuthN: {
-          domain: "",
-          userVerificationRequirement,
-        },
-      }),
+      operation: "passkey-challenge",
+      userVerification: login ? "required" : "discouraged",
       requestId,
     })
       .catch((error) => {
@@ -110,6 +106,7 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
     setLoading(true);
     try {
       const response = await sendPasskey({
+        turnstileToken: await turnstile.getToken(),
         loginName,
         sessionId,
         organization,
@@ -190,6 +187,7 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
   return (
     <div className="w-full">
       {samlData && <AutoSubmitForm url={samlData.url} fields={samlData.fields} />}
+      {turnstile.widget}
       {error && (
         <div className="mb-6">
           <Alert title={error}>{cancelled ? t("verify.errors.verificationCancelledHint") : undefined}</Alert>
@@ -250,7 +248,10 @@ export function LoginPasskey({ loginName, sessionId, requestId, altPassword, org
               setLoading(false);
             });
 
-            const pK = response?.challenges?.webAuthN?.publicKeyCredentialRequestOptions?.publicKey;
+            const pK =
+              response && "challenges" in response
+                ? response.challenges?.webAuthN?.publicKeyCredentialRequestOptions?.publicKey
+                : undefined;
 
             if (!pK) {
               setError(t("verify.errors.couldNotRequestChallenge"));

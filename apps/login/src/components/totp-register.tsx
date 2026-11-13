@@ -1,8 +1,7 @@
 "use client";
 
-import { completeFlowOrGetUrl } from "@/lib/client";
 import { handleServerActionResponse } from "@/lib/client-utils";
-import { verifyTOTP } from "@/lib/server/verify";
+import { completeFlowOrGetUrl, verifyTOTP } from "@/lib/server/actions";
 import { LoginSettings } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import { useTranslations } from "next-intl";
 import Link from "next/link";

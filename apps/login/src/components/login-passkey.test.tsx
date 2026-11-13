@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../test-mocks/render-with-turnstile";
 import { LoginPasskey } from "./login-passkey";
 
 // Mock next/navigation
@@ -12,11 +13,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Mock server actions
-vi.mock("@/lib/server/passkeys", () => ({
+vi.mock("@/lib/server/actions", () => ({
   sendPasskey: vi.fn(),
-}));
 
-vi.mock("@/lib/server/session", () => ({
   updateOrCreateSession: vi.fn(),
 }));
 
@@ -39,6 +38,8 @@ describe("LoginPasskey Component", () => {
         title: "Authenticate with a passkey",
         description: "Your device will ask for your fingerprint",
         usePassword: "Use password",
+        useDifferentEmail: "Use a different email",
+        tryAgain: "Try again",
         submit: "Continue",
         errors: {
           couldNotRequestChallenge: "Could not request passkey challenge",
@@ -66,8 +67,8 @@ describe("LoginPasskey Component", () => {
     mockPush.mockClear();
     mockCredentialsGet.mockClear();
 
-    const { sendPasskey } = await import("@/lib/server/passkeys");
-    const { updateOrCreateSession } = await import("@/lib/server/session");
+    const { sendPasskey } = await import("@/lib/server/actions");
+    const { updateOrCreateSession } = await import("@/lib/server/actions");
 
     mockSendPasskey = vi.mocked(sendPasskey);
     mockUpdateSession = vi.mocked(updateOrCreateSession);

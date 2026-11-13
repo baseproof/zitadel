@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { getSessionCookieById } from "@/lib/cookies";
 import { isClassifiedError } from "@/lib/grpc/interceptors/error-classification";

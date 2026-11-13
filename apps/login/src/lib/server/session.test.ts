@@ -1,6 +1,6 @@
 import { Code } from "@connectrpc/connect";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { clearSession } from "./session";
+import { clearSession, continueWithSession } from "./session";
 
 vi.mock("@zitadel/client", async () => {
   const { Code } = await import("@connectrpc/connect");
@@ -10,6 +10,7 @@ vi.mock("@zitadel/client", async () => {
 vi.mock("@/lib/zitadel", () => ({
   deleteSession: vi.fn(),
   getLoginSettings: vi.fn(),
+  getSession: vi.fn(),
   getSecuritySettings: vi.fn(),
   humanMFAInitSkipped: vi.fn(),
   listAuthenticationMethodTypes: vi.fn(),
@@ -61,6 +62,43 @@ vi.mock("@/lib/grpc/interceptors/error-classification", () => ({
 }));
 
 const cookie = { id: "session-1", token: "token-1", loginName: "user@example.com" };
+
+describe("continueWithSession", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  test("requires a server cookie even if the browser supplies verified factors", async () => {
+    const cookies = await import("../cookies");
+    const zitadel = await import("@/lib/zitadel");
+    vi.mocked(cookies.getSessionCookieById).mockResolvedValue(undefined);
+    const forged = { id: "session-1", factors: { user: { id: "attacker" }, password: { verifiedAt: new Date() } } };
+    await expect(continueWithSession(forged)).resolves.toEqual({ error: "couldNotContinueSession" });
+    expect(zitadel.getSession).not.toHaveBeenCalled();
+  });
+
+  test("validates the session loaded using the server cookie, ignoring browser factors", async () => {
+    const cookies = await import("../cookies");
+    const zitadel = await import("@/lib/zitadel");
+    const { isSessionValid } = await import("../session");
+    const { completeFlowOrGetUrl } = await import("../client");
+    vi.mocked(cookies.getSessionCookieById).mockResolvedValue(cookie as any);
+    const authoritative = {
+      id: cookie.id,
+      factors: { user: { id: "real-user", loginName: cookie.loginName, organizationId: "real-org" } },
+    };
+    vi.mocked(zitadel.getSession).mockResolvedValue({ session: authoritative } as any);
+    vi.mocked(zitadel.getLoginSettings).mockResolvedValue({ defaultRedirectUri: "/home" } as any);
+    vi.mocked(isSessionValid).mockResolvedValue(true);
+    await continueWithSession({ id: cookie.id, requestId: "oidc_request", factors: { user: { id: "attacker" } } } as any);
+    expect(zitadel.getSession).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: cookie.id, sessionToken: cookie.token }),
+    );
+    expect(isSessionValid).toHaveBeenCalledWith(expect.objectContaining({ session: authoritative }));
+    expect(completeFlowOrGetUrl).toHaveBeenCalledWith(
+      { sessionId: cookie.id, requestId: "oidc_request", organization: "real-org" },
+      "/home",
+    );
+  });
+});
 
 describe("clearSession", () => {
   let deleteSession: any;
