@@ -25,10 +25,17 @@ ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Final stage: Creates a minimal container image with just the Zitadel binary and necessary files
 FROM scratch AS final
+ARG SERVICE_REVISION
+ARG SERVICE_VERSION
+
+LABEL org.opencontainers.image.source="https://github.com/baseproof/zitadel" \
+      org.opencontainers.image.revision="${SERVICE_REVISION}" \
+      org.opencontainers.image.version="${SERVICE_VERSION}"
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /app/zitadel /app/zitadel
+COPY apps/api/VERSION /app/VERSION
 
 HEALTHCHECK NONE
 EXPOSE 8080
