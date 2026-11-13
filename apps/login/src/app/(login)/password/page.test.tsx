@@ -1,11 +1,12 @@
-import { resetPassword, sendPassword } from "@/lib/server/password";
+import { resetPassword, sendPassword } from "@/lib/server/actions";
 import { loadMostRecentSession } from "@/lib/session";
 import { getLoginSettings } from "@/lib/zitadel";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { create } from "@zitadel/client";
 import { LoginSettingsSchema } from "@zitadel/proto/zitadel/settings/v2/login_settings_pb";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { render } from "../../../../test-mocks/render-with-turnstile";
 import Page from "./page";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -19,7 +20,7 @@ vi.mock("@/lib/service-url", () => ({
 }));
 vi.mock("@/lib/session", () => ({ loadMostRecentSession: vi.fn() }));
 vi.mock("@/lib/zitadel", () => ({ getBrandingSettings: vi.fn(), getDefaultOrg: vi.fn(), getLoginSettings: vi.fn() }));
-vi.mock("@/lib/server/password", () => ({ resetPassword: vi.fn(), sendPassword: vi.fn() }));
+vi.mock("@/lib/server/actions", () => ({ resetPassword: vi.fn(), sendPassword: vi.fn() }));
 
 const parameters = { loginName: "user@example.com", organization: "org123", requestId: "req123" };
 const changeURL = "/password/change?loginName=user%40example.com&organization=org123&requestId=req123";
