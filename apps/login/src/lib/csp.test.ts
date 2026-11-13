@@ -2,6 +2,14 @@ import { describe, expect, test } from "vitest";
 import { buildCSP } from "./csp";
 
 describe("buildCSP", () => {
+  test("allows only the official challenge origin when Turnstile is enabled", () => {
+    const enabled = buildCSP({ turnstileEnabled: true });
+    expect(enabled).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com");
+    expect(enabled).toContain("frame-src 'self' https://challenges.cloudflare.com");
+    expect(enabled).toContain("frame-ancestors 'none'");
+    expect(buildCSP({ turnstileEnabled: false })).not.toContain("cloudflare");
+    expect(buildCSP()).not.toContain("cloudflare");
+  });
   test("returns all base directives with safe defaults", () => {
     const csp = buildCSP();
 

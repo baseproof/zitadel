@@ -12,10 +12,16 @@ const BASE_DIRECTIVES: Record<string, string[]> = {
 export interface CSPOptions {
   serviceUrl?: string;
   iframeOrigins?: string[] | null;
+  turnstileEnabled?: boolean;
 }
 
 export function buildCSP(options: CSPOptions = {}): string {
   const directives: Record<string, string[]> = { ...BASE_DIRECTIVES };
+
+  if (options.turnstileEnabled) {
+    directives["script-src"] = [...directives["script-src"], "https://challenges.cloudflare.com"];
+    directives["frame-src"] = ["'self'", "https://challenges.cloudflare.com"];
+  }
 
   if (options.serviceUrl) {
     directives["img-src"] = [...directives["img-src"], options.serviceUrl];
