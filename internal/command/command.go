@@ -117,6 +117,7 @@ type Commands struct {
 //go:generate mockgen -package command -destination ./mock_login_paths.go . LoginPaths
 type LoginPaths interface {
 	DefaultEmailCodeURLTemplate(ctx context.Context) string
+	DefaultInviteURLTemplate(ctx context.Context) string
 	DefaultPasswordSetURLTemplate(ctx context.Context) string
 	DefaultPasskeySetURLTemplate(ctx context.Context) string
 	DefaultDomainClaimedURLTemplate(ctx context.Context) string

@@ -72,6 +72,11 @@ func (c *Commands) sendInviteCode(ctx context.Context, invite *CreateUserInvite,
 	if invite.URLTemplate == "" {
 		invite.URLTemplate = wm.URLTemplate
 	}
+	if invite.URLTemplate == "" {
+		// Persist the V2 default in the event so both notification workers use
+		// the same destination, including resends of an older empty template.
+		invite.URLTemplate = c.loginPaths.DefaultInviteURLTemplate(ctx)
+	}
 	if invite.ApplicationName == "" {
 		invite.ApplicationName = wm.ApplicationName
 	}

@@ -20,6 +20,15 @@ import (
 	"github.com/zitadel/zitadel/internal/zerrors"
 )
 
+const defaultInviteURL = "https://id.example.com/ui/v2/login/verify?invite=true&code={{.Code}}&userId={{.UserID}}&organization={{.OrgID}}"
+
+func inviteLoginPaths(t *testing.T) LoginPaths {
+	t.Helper()
+	paths := NewMockLoginPaths(gomock.NewController(t))
+	paths.EXPECT().DefaultInviteURLTemplate(gomock.Any()).Return(defaultInviteURL).AnyTimes()
+	return paths
+}
+
 func TestCommands_CreateInviteCode(t *testing.T) {
 	t.Parallel()
 	type fields struct {
@@ -124,7 +133,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"",
@@ -180,7 +189,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								true,
 								"",
 								"",
@@ -237,7 +246,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								true,
 								"",
 								"",
@@ -387,7 +396,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code2"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"",
@@ -476,7 +485,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code2"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								true,
 								"",
 								"",
@@ -556,7 +565,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code2"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"",
@@ -635,7 +644,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code2"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								true,
 								"",
 								"",
@@ -715,7 +724,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code2"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								true,
 								"",
 								"",
@@ -824,7 +833,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"",
@@ -860,6 +869,7 @@ func TestCommands_CreateInviteCode(t *testing.T) {
 				eventstore:                  tt.fields.eventstore(t),
 				defaultSecretGenerators:     tt.fields.defaultSecretGenerators,
 			}
+			c.loginPaths = inviteLoginPaths(t)
 			gotDetails, gotReturnCode, err := c.CreateInviteCode(tt.args.ctx, tt.args.invite)
 
 			require.ErrorIs(t, err, tt.want.err)
@@ -1075,7 +1085,7 @@ func TestCommands_ResendInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"authRequestID",
@@ -1144,7 +1154,7 @@ func TestCommands_ResendInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"authRequestID",
@@ -1215,7 +1225,7 @@ func TestCommands_ResendInviteCode(t *testing.T) {
 									Crypted:    []byte("code"),
 								},
 								time.Hour,
-								"",
+								defaultInviteURL,
 								false,
 								"",
 								"authRequestID2",
@@ -1249,6 +1259,7 @@ func TestCommands_ResendInviteCode(t *testing.T) {
 				eventstore:                  tt.fields.eventstore(t),
 				defaultSecretGenerators:     tt.fields.defaultSecretGenerators,
 			}
+			c.loginPaths = inviteLoginPaths(t)
 			details, err := c.ResendInviteCode(tt.args.ctx, tt.args.userID, tt.args.orgID, tt.args.authRequestID)
 			assert.ErrorIs(t, err, tt.want.err)
 			assert.Equal(t, tt.want.details, details)

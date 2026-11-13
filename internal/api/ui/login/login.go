@@ -145,6 +145,13 @@ func (c *DefaultPaths) DefaultEmailCodeURLTemplate(ctx context.Context) string {
 	return mergeURLs(basePath, c.EmailCodePath)
 }
 
+func (c *DefaultPaths) DefaultInviteURLTemplate(ctx context.Context) string {
+	return mergeURLs(c.defaultBaseURL(ctx), &url.URL{
+		Path:     "verify",
+		RawQuery: "invite=true&code={{.Code}}&userId={{.UserID}}&organization={{.OrgID}}",
+	})
+}
+
 func (c *DefaultPaths) DefaultPasswordSetURLTemplate(ctx context.Context) string {
 	basePath := c.defaultBaseURL(ctx)
 	if basePath == nil {
