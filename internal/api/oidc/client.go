@@ -49,7 +49,7 @@ func (o *OPStorage) GetClientByClientID(ctx context.Context, id string) (_ op.Cl
 	if err != nil {
 		return nil, err
 	}
-	return ClientFromBusiness(client, o.defaultLoginURL, o.defaultLoginURLV2), nil
+	return ClientFromBusiness(client, o.defaultLoginURLV2), nil
 }
 
 func (o *OPStorage) GetKeyByIDAndClientID(context.Context, string, string) (*jose.JSONWebKey, error) {
@@ -221,7 +221,7 @@ func (s *Server) VerifyClient(ctx context.Context, r *op.Request[op.ClientCreden
 		return nil, err
 	}
 
-	return ClientFromBusiness(client, s.defaultLoginURL, s.defaultLoginURLV2), nil
+	return ClientFromBusiness(client, s.defaultLoginURLV2), nil
 }
 
 func (s *Server) verifyClientAssertion(ctx context.Context, client *query.OIDCClient, assertion string) (err error) {

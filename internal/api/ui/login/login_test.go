@@ -28,9 +28,12 @@ func TestConfig_defaultBaseURL(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "LoginV2 not required",
-			inputCtx: authz.NewMockContext("instance1", "org1", "user1"),
-			expected: "",
+			name: "LoginV2 remains active when the old feature flag is unset",
+			inputCtx: http.WithDomainContext(
+				authz.NewMockContext("instance1", "org1", "user1"),
+				&http.DomainCtx{Protocol: "https", PublicHost: "origin"},
+			),
+			expected: "https://origin/basepath",
 		},
 		{
 			name: "LoginV2 required, no custom BaseURI",
@@ -96,14 +99,14 @@ func TestConfig_DefaultEmailCodeURLTemplate(t *testing.T) {
 		expectedEmailURLTemplate string
 	}{
 		{
-			testName: "when base path is empty should return empty email url template",
+			testName: "old feature flag cannot disable the V2 email URL",
 			inputCtx: http.WithDomainContext(
 				authz.NewMockContext("instance1", "org1", "user1",
 					authz.WithMockFeatures(feature.Features{LoginV2: feature.LoginV2{Required: false, BaseURI: &url.URL{}}}),
 				),
 				&http.DomainCtx{Protocol: "https", PublicHost: "origin"},
 			),
-			expectedEmailURLTemplate: "",
+			expectedEmailURLTemplate: "https://origin/basepath/email-code-path",
 		},
 		{
 			testName: "when base path is not empty should return expected url template",
@@ -145,14 +148,14 @@ func TestConfig_DefaultPasswordSetURLTemplate(t *testing.T) {
 		expectedEmailURLTemplate string
 	}{
 		{
-			testName: "when base path is empty should return empty email url template",
+			testName: "old feature flag cannot disable the V2 password URL",
 			inputCtx: http.WithDomainContext(
 				authz.NewMockContext("instance1", "org1", "user1",
 					authz.WithMockFeatures(feature.Features{LoginV2: feature.LoginV2{Required: false, BaseURI: &url.URL{}}}),
 				),
 				&http.DomainCtx{Protocol: "https", PublicHost: "origin"},
 			),
-			expectedEmailURLTemplate: "",
+			expectedEmailURLTemplate: "https://origin/basepath/password-set-path",
 		},
 		{
 			testName: "when base path is not empty should return expected url template",
@@ -194,14 +197,14 @@ func TestConfig_DefaultPasskeySetURLTemplate(t *testing.T) {
 		expectedEmailURLTemplate string
 	}{
 		{
-			testName: "when base path is empty should return empty email url template",
+			testName: "old feature flag cannot disable the V2 passkey URL",
 			inputCtx: http.WithDomainContext(
 				authz.NewMockContext("instance1", "org1", "user1",
 					authz.WithMockFeatures(feature.Features{LoginV2: feature.LoginV2{Required: false, BaseURI: &url.URL{}}}),
 				),
 				&http.DomainCtx{Protocol: "https", PublicHost: "origin"},
 			),
-			expectedEmailURLTemplate: "",
+			expectedEmailURLTemplate: "https://origin/basepath/passkey-set-path",
 		},
 		{
 			testName: "when base path is not empty should return expected url template",
@@ -243,14 +246,14 @@ func TestConfig_DefaultDomainClaimedURLTemplate(t *testing.T) {
 		expectedEmailURLTemplate string
 	}{
 		{
-			testName: "when base path is empty should return empty email url template",
+			testName: "old feature flag cannot disable the V2 domain claimed URL",
 			inputCtx: http.WithDomainContext(
 				authz.NewMockContext("instance1", "org1", "user1",
 					authz.WithMockFeatures(feature.Features{LoginV2: feature.LoginV2{Required: false, BaseURI: &url.URL{}}}),
 				),
 				&http.DomainCtx{Protocol: "https", PublicHost: "origin"},
 			),
-			expectedEmailURLTemplate: "",
+			expectedEmailURLTemplate: "https://origin/basepath/loginname",
 		},
 		{
 			testName: "when base path is not empty should return expected url template",

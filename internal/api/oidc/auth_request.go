@@ -23,7 +23,6 @@ import (
 	"github.com/zitadel/zitadel/internal/auth/repository/eventsourcing/handler"
 	"github.com/zitadel/zitadel/internal/command"
 	"github.com/zitadel/zitadel/internal/domain"
-	"github.com/zitadel/zitadel/internal/domain/federatedlogout"
 	"github.com/zitadel/zitadel/internal/query"
 	"github.com/zitadel/zitadel/internal/telemetry/tracing"
 	"github.com/zitadel/zitadel/internal/zerrors"
@@ -47,36 +46,10 @@ func (o *OPStorage) CreateAuthRequest(ctx context.Context, req *oidc.AuthRequest
 		span.EndWithError(err)
 	}()
 
-	// for backwards compatibility we pass the login client if set
+	// Preserve an explicitly selected login client; all requests use Login V2.
 	headers, _ := http_utils.HeadersFromCtx(ctx)
 	loginClient := headers.Get(LoginClientHeader)
-
-	// for backwards compatibility we'll use the new login if the header is set (no matter the other configs)
-	if loginClient != "" {
-		return o.createAuthRequestLoginClient(ctx, req, userID, loginClient)
-	}
-
-	// if the instance requires the v2 login, use it no matter what the application configured
-	if authz.GetFeatures(ctx).LoginV2.Required {
-		return o.createAuthRequestLoginClient(ctx, req, userID, loginClient)
-	}
-
-	version, err := o.query.OIDCClientLoginVersion(ctx, req.ClientID)
-	if err != nil {
-		return nil, err
-	}
-
-	switch version {
-	case domain.LoginVersion1:
-		return o.createAuthRequest(ctx, req, userID)
-	case domain.LoginVersion2:
-		return o.createAuthRequestLoginClient(ctx, req, userID, loginClient)
-	case domain.LoginVersionUnspecified:
-		fallthrough
-	default:
-		// since we already checked for a login header, we can fall back to the v1 login
-		return o.createAuthRequest(ctx, req, userID)
-	}
+	return o.createAuthRequestLoginClient(ctx, req, userID, loginClient)
 }
 
 func (o *OPStorage) createAuthRequestScopeAndAudience(ctx context.Context, clientID string, reqScope []string) (scope, audience []string, orgID string, err error) {
@@ -137,25 +110,6 @@ func (o *OPStorage) createAuthRequestLoginClient(ctx context.Context, req *oidc.
 		return nil, err
 	}
 	return &AuthRequestV2{aar}, nil
-}
-
-func (o *OPStorage) createAuthRequest(ctx context.Context, req *oidc.AuthRequest, userID string) (_ op.AuthRequest, err error) {
-	userAgentID, ok := middleware.UserAgentIDFromCtx(ctx)
-	if !ok {
-		return nil, zerrors.ThrowPreconditionFailed(nil, "OIDC-sd436", "no user agent id")
-	}
-	// we do not need to handle the orgID for the v1 login, since it handles it already
-	scope, audience, _, err := o.createAuthRequestScopeAndAudience(ctx, req.ClientID, req.Scopes)
-	if err != nil {
-		return nil, err
-	}
-	req.Scopes = scope
-	authRequest := CreateAuthRequestToBusiness(ctx, req, userAgentID, userID, audience)
-	resp, err := o.repo.CreateAuthRequest(ctx, authRequest)
-	if err != nil {
-		return nil, err
-	}
-	return AuthRequestFromBusiness(resp)
 }
 
 func (o *OPStorage) audienceFromProjectID(ctx context.Context, projectID string) ([]string, error) {
@@ -278,16 +232,8 @@ func (o *OPStorage) TerminateSessionFromRequest(ctx context.Context, endSessionR
 		span.EndWithError(err)
 	}()
 
-	// check for the login client header
-	headers, _ := http_utils.HeadersFromCtx(ctx)
-
-	// V2:
-	// In case there is no id_token_hint and login V2 is either required by feature
-	// or requested via header (backwards compatibility),
-	// we'll redirect to the UI (V2) and let it decide which session to terminate
-	//
-	// If there's no id_token_hint and for v1 logins, we handle them separately
-	if endSessionRequest.IDTokenHintClaims == nil && (authz.GetFeatures(ctx).LoginV2.Required || headers.Get(LoginClientHeader) != "") {
+	// Without an ID token hint, Login V2 selects the session to terminate.
+	if endSessionRequest.IDTokenHintClaims == nil {
 		redirectURI := v2PostLogoutRedirectURI(endSessionRequest.RedirectURI)
 		logoutURI := authz.GetFeatures(ctx).LoginV2.BaseURI
 		// if no logout uri is set, fallback to the default configured in the runtime config
@@ -306,20 +252,12 @@ func (o *OPStorage) TerminateSessionFromRequest(ctx context.Context, endSessionR
 		return buildLoginV2LogoutURL(logoutURI, redirectURI, endSessionRequest.LogoutHint, endSessionRequest.UILocales, signer)
 	}
 
-	// V1:
-	// We check again for the id_token_hint param and if a session is set in it.
-	// All explicit V2 sessions with empty id_token_hint are handled above and all V2 session contain a sessionID
-	// So if any condition is not met, we handle the request as a V1 request and do a (v1) TerminateSession,
-	// which terminates all sessions of the user agent, identified by cookie.
-	if endSessionRequest.IDTokenHintClaims == nil || endSessionRequest.IDTokenHintClaims.SessionID == "" {
-		sessions, err := o.terminateSession(ctx, endSessionRequest.UserID)
+	// End existing legacy sessions locally. The removed Login V1 UI no longer
+	// performs upstream identity-provider logout for those sessions.
+	if endSessionRequest.IDTokenHintClaims.SessionID == "" {
+		_, err := o.terminateSession(ctx, endSessionRequest.UserID)
 		if err != nil {
 			return "", err
-		}
-		if len(sessions) == 1 {
-			if path := o.federatedLogout(ctx, sessions[0].ID, endSessionRequest.RedirectURI); path != "" {
-				return path, nil
-			}
 		}
 		return endSessionRequest.RedirectURI, nil
 	}
@@ -332,9 +270,6 @@ func (o *OPStorage) TerminateSessionFromRequest(ctx context.Context, endSessionR
 		if err != nil {
 			return "", err
 		}
-		if path := o.federatedLogout(ctx, endSessionRequest.IDTokenHintClaims.SessionID, endSessionRequest.RedirectURI); path != "" {
-			return path, nil
-		}
 		return endSessionRequest.RedirectURI, nil
 	}
 
@@ -345,39 +280,6 @@ func (o *OPStorage) TerminateSessionFromRequest(ctx context.Context, endSessionR
 		return "", err
 	}
 	return v2PostLogoutRedirectURI(endSessionRequest.RedirectURI), nil
-}
-
-// federatedLogout checks whether the session has an idp session linked and the IDP template is configured for federated logout.
-// If so, it creates a federated logout request and stores it in the cache and returns the logout path.
-func (o *OPStorage) federatedLogout(ctx context.Context, sessionID string, postLogoutRedirectURI string) string {
-	session, err := o.repo.UserSessionByID(ctx, sessionID)
-	if err != nil {
-		logging.WithFields("instanceID", authz.GetInstance(ctx).InstanceID(), "sessionID", sessionID).
-			WithError(err).Error("error retrieving user session")
-		return ""
-	}
-	if session.SelectedIDPConfigID.String == "" {
-		return ""
-	}
-	identityProvider, err := o.query.IDPTemplateByID(ctx, false, session.SelectedIDPConfigID.String, false, nil)
-	if err != nil {
-		logging.WithFields("instanceID", authz.GetInstance(ctx).InstanceID(), "idpID", session.SelectedIDPConfigID.String, "sessionID", sessionID).
-			WithError(err).Error("error retrieving idp template")
-		return ""
-	}
-	if identityProvider.SAMLIDPTemplate == nil || !identityProvider.FederatedLogoutEnabled {
-		return ""
-	}
-	o.federateLogoutCache.Set(ctx, &federatedlogout.FederatedLogout{
-		InstanceID:            authz.GetInstance(ctx).InstanceID(),
-		FingerPrintID:         authz.GetCtxData(ctx).AgentID,
-		SessionID:             sessionID,
-		IDPID:                 session.SelectedIDPConfigID.String,
-		UserID:                session.UserID,
-		PostLogoutRedirectURI: postLogoutRedirectURI,
-		State:                 federatedlogout.StateCreated,
-	})
-	return login.ExternalLogoutPath(sessionID)
 }
 
 type logoutTokenPayload struct {
@@ -412,9 +314,7 @@ func buildLoginV2LogoutURL(logoutURI *url.URL, redirectURI, logoutHint string, u
 	return logoutURI.String(), nil
 }
 
-// v2PostLogoutRedirectURI will take care that the post_logout_redirect_uri is correctly set for v2 logins.
-// The default value set by the [op.SessionEnder] only handles V1 logins. In case the redirect_uri is set to the default
-// we'll return the path for the v2 login.
+// v2PostLogoutRedirectURI makes the default destination relative to the Login V2 base URI.
 func v2PostLogoutRedirectURI(redirectURI string) string {
 	if redirectURI != login.DefaultLoggedOutPath {
 		return redirectURI

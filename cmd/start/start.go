@@ -20,8 +20,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/zitadel/oidc/v3/pkg/op"
-	"github.com/zitadel/saml/pkg/provider"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"golang.org/x/text/language"
@@ -668,7 +666,6 @@ func startAPIs(
 		limitingAccessInterceptor,
 		config.Log.Slog(),
 		config.SystemDefaults.SecretHasher,
-		federatedLogoutsCache,
 		httpClient,
 	)
 	if err != nil {
@@ -714,35 +711,7 @@ func startAPIs(
 		return nil, fmt.Errorf("unable to start management console: %w", err)
 	}
 	apis.RegisterHandlerOnPrefix(path.HandlerPrefix, c)
-	managementConsolePath := path.HandlerPrefix + "/"
-	l, err := login.CreateLogin(
-		config.Login,
-		commands,
-		queries,
-		authRepo,
-		store,
-		managementConsolePath,
-		oidcServer.AuthCallbackURL(),
-		samlProvider.AuthCallbackURL(),
-		config.ExternalSecure,
-		userAgentInterceptor,
-		op.NewIssuerInterceptor(oidcServer.IssuerFromRequest).Handler,
-		provider.NewIssuerInterceptor(samlProvider.IssuerFromRequest).Handler,
-		instanceInterceptor.Handler,
-		assetsCache.Handler,
-		limitingAccessInterceptor.WithRedirect(managementConsolePath).Handle,
-		keys.User,
-		keys.IDPConfig,
-		keys.CSRFCookieKey,
-		cacheConnectors,
-		federatedLogoutsCache,
-		httpClient,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to start login: %w", err)
-	}
-	apis.RegisterHandlerOnPrefix(login.HandlerPrefix, l.Handler())
-	apis.HandleFunc(login.EndpointDeviceAuth, login.RedirectDeviceAuthToPrefix)
+	apis.HandleFunc(login.EndpointDeviceAuth, instanceInterceptor.Handler(http.HandlerFunc(config.Login.DefaultPaths.RedirectDeviceAuthorization)).ServeHTTP)
 
 	// After OIDC provider so that the callback endpoint can be used
 	if err := apis.RegisterService(ctx, oidc_v2beta.CreateServer(commands, queries, oidcServer, config.ExternalSecure)); err != nil {

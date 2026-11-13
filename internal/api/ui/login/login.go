@@ -69,10 +69,6 @@ type DefaultPaths struct {
 
 func (c *DefaultPaths) defaultBaseURL(ctx context.Context) *url.URL {
 	loginV2 := authz.GetInstance(ctx).Features().LoginV2
-	// In case login v1 is still active, we don't want to return a base URL, as the templates will not be used
-	if !loginV2.Required {
-		return nil
-	}
 	origin := http_utils.DomainContext(ctx).OriginURL()
 	if loginV2.BaseURI == nil || loginV2.BaseURI.String() == "" {
 		// In case the login v2 is enabled without a custom BaseURI,
@@ -183,7 +179,7 @@ func (c *DefaultPaths) DefaultOTPEmailURLTemplate(origin *url.URL) string {
 const (
 	login                = "LOGIN"
 	HandlerPrefix        = "/ui/login"
-	DefaultLoggedOutPath = HandlerPrefix + EndpointLogoutDone
+	DefaultLoggedOutPath = "/ui/v2/login/logout/done"
 )
 
 func CreateLogin(

@@ -10,7 +10,6 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/op"
 
 	"github.com/zitadel/zitadel/internal/api/authz"
-	"github.com/zitadel/zitadel/internal/command"
 	"github.com/zitadel/zitadel/internal/domain"
 	"github.com/zitadel/zitadel/internal/query"
 )
@@ -21,12 +20,11 @@ const (
 
 type Client struct {
 	client            *query.OIDCClient
-	defaultLoginURL   string
 	defaultLoginURLV2 string
 	allowedScopes     []string
 }
 
-func ClientFromBusiness(client *query.OIDCClient, defaultLoginURL, defaultLoginURLV2 string) op.Client {
+func ClientFromBusiness(client *query.OIDCClient, defaultLoginURLV2 string) op.Client {
 	allowedScopes := make([]string, len(client.ProjectRoleKeys))
 	for i, roleKey := range client.ProjectRoleKeys {
 		allowedScopes[i] = ScopeProjectRolePrefix + roleKey
@@ -34,7 +32,6 @@ func ClientFromBusiness(client *query.OIDCClient, defaultLoginURL, defaultLoginU
 
 	return &Client{
 		client:            client,
-		defaultLoginURL:   defaultLoginURL,
 		defaultLoginURLV2: defaultLoginURLV2,
 		allowedScopes:     allowedScopes,
 	}
@@ -53,12 +50,7 @@ func (c *Client) GetID() string {
 }
 
 func (c *Client) LoginURL(id string) string {
-	// if the authRequest does not have the v2 prefix, it was created for login V1
-	if !strings.HasPrefix(id, command.IDPrefixV2) {
-		return c.defaultLoginURL + id
-	}
-	// any v2 login without a specific base uri will be sent to the configured login v2 UI
-	// this way we're also backwards compatible
+	// Requests without an application-specific URI use the configured Login V2 UI.
 	if c.client.LoginBaseURI == nil || c.client.LoginBaseURI.URL().String() == "" {
 		return c.defaultLoginURLV2 + id
 	}

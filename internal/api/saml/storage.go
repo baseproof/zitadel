@@ -64,7 +64,6 @@ type Storage struct {
 	command    *command.Commands
 	query      *query.Queries
 
-	defaultLoginURL   string
 	defaultLoginURLv2 string
 	contextToIssuer   func(context.Context) string
 	httpClient        *http.Client
@@ -76,7 +75,7 @@ func (p *Storage) GetEntityByID(ctx context.Context, entityID string) (*servicep
 		return nil, err
 	}
 
-	return ServiceProviderFromBusiness(sp, p.defaultLoginURL, p.defaultLoginURLv2)
+	return ServiceProviderFromBusiness(sp, p.defaultLoginURLv2)
 }
 
 func (p *Storage) GetEntityIDByAppID(ctx context.Context, appID string) (string, error) {
@@ -107,34 +106,10 @@ func (p *Storage) CreateAuthRequest(ctx context.Context, req *samlp.AuthnRequest
 	ctx, span := tracing.NewSpan(ctx)
 	defer func() { span.EndWithError(err) }()
 
-	// for backwards compatibility we pass the login client if set
+	// Preserve an explicitly selected login client; all requests use Login V2.
 	headers, _ := http_utils.HeadersFromCtx(ctx)
 	loginClient := headers.Get(LoginClientHeader)
-
-	// for backwards compatibility we'll use the new login if the header is set (no matter the other configs)
-	if loginClient != "" {
-		return p.createAuthRequestLoginClient(ctx, req, acsUrl, protocolBinding, relayState, applicationID, loginClient)
-	}
-
-	// if the instance requires the v2 login, use it no matter what the application configured
-	if authz.GetFeatures(ctx).LoginV2.Required {
-		return p.createAuthRequestLoginClient(ctx, req, acsUrl, protocolBinding, relayState, applicationID, loginClient)
-	}
-	version, err := p.query.SAMLAppLoginVersion(ctx, applicationID)
-	if err != nil {
-		return nil, err
-	}
-	switch version {
-	case domain.LoginVersion1:
-		return p.createAuthRequest(ctx, req, acsUrl, protocolBinding, relayState, applicationID)
-	case domain.LoginVersion2:
-		return p.createAuthRequestLoginClient(ctx, req, acsUrl, protocolBinding, relayState, applicationID, loginClient)
-	case domain.LoginVersionUnspecified:
-		fallthrough
-	default:
-		// since we already checked for a login header, we can fall back to the v1 login
-		return p.createAuthRequest(ctx, req, acsUrl, protocolBinding, relayState, applicationID)
-	}
+	return p.createAuthRequestLoginClient(ctx, req, acsUrl, protocolBinding, relayState, applicationID, loginClient)
 }
 
 func (p *Storage) createAuthRequestLoginClient(ctx context.Context, req *samlp.AuthnRequestType, acsUrl, protocolBinding, relayState, applicationID, loginClient string) (_ models.AuthRequestInt, err error) {
@@ -157,24 +132,6 @@ func (p *Storage) createAuthRequestLoginClient(ctx context.Context, req *samlp.A
 		return nil, err
 	}
 	return &AuthRequestV2{aar}, nil
-}
-
-func (p *Storage) createAuthRequest(ctx context.Context, req *samlp.AuthnRequestType, acsUrl, protocolBinding, relayState, applicationID string) (_ models.AuthRequestInt, err error) {
-	ctx, span := tracing.NewSpan(ctx)
-	defer func() { span.EndWithError(err) }()
-	userAgentID, ok := middleware.UserAgentIDFromCtx(ctx)
-	if !ok {
-		return nil, zerrors.ThrowPreconditionFailed(nil, "SAML-sd436", "no user agent id")
-	}
-
-	authRequest := CreateAuthRequestToBusiness(ctx, req, acsUrl, protocolBinding, applicationID, relayState, userAgentID)
-
-	resp, err := p.repo.CreateAuthRequest(ctx, authRequest)
-	if err != nil {
-		return nil, err
-	}
-
-	return AuthRequestFromBusiness(resp)
 }
 
 func (p *Storage) AuthRequestByID(ctx context.Context, id string) (_ models.AuthRequestInt, err error) {
