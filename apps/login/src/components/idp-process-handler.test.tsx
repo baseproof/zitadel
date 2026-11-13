@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { IdpProcessHandler } from "./idp-process-handler";
 
@@ -9,8 +10,14 @@ const { getToken, processCallback, push } = vi.hoisted(() => ({
 }));
 vi.mock("./turnstile-provider", () => ({ useTurnstile: () => ({ getToken, widget: null }) }));
 vi.mock("@/lib/server/actions", () => ({ processIDPCallback: processCallback }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
+vi.mock("next/navigation", () => {
+  const router = { push };
+  return { useRouter: () => router };
+});
+vi.mock("next-intl", () => {
+  const translate = (key: string) => key;
+  return { useTranslations: () => translate };
+});
 beforeEach(() => {
   vi.clearAllMocks();
   processCallback.mockResolvedValue({ redirect: "/next" });
@@ -48,4 +55,29 @@ test("verification failure preserves the intent and allows a fresh attempt", asy
   fireEvent.click(screen.getByRole("button", { name: "tryAgain" }));
   await waitFor(() => expect(processCallback).toHaveBeenCalledTimes(1));
   expect(processCallback).toHaveBeenCalledWith(expect.objectContaining({ turnstileToken: "fresh-token" }));
+});
+
+test("Strict Mode effect replay processes the intent only from the active attempt", async () => {
+  getToken.mockResolvedValueOnce("cancelled-attempt-token").mockResolvedValueOnce("active-attempt-token");
+  render(
+    <StrictMode>
+      <IdpProcessHandler provider="google" id="intent" token="intent-token" />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(processCallback).toHaveBeenCalledTimes(1));
+  expect(processCallback).toHaveBeenCalledWith(expect.objectContaining({ turnstileToken: "active-attempt-token" }));
+});
+
+test("unmounting while verification is pending does not consume the intent", async () => {
+  let verify!: (token: string) => void;
+  getToken.mockReturnValue(
+    new Promise<string>((resolve) => {
+      verify = resolve;
+    }),
+  );
+  const page = render(<IdpProcessHandler provider="google" id="intent" token="intent-token" />);
+  page.unmount();
+  verify("late-token");
+  await Promise.resolve();
+  expect(processCallback).not.toHaveBeenCalled();
 });

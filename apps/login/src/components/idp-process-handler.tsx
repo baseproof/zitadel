@@ -54,10 +54,12 @@ export function IdpProcessHandler({
     }
 
     executedRef.current = true;
+    let active = true;
 
     getToken()
-      .then((turnstileToken) =>
-        processIDPCallback({
+      .then((turnstileToken) => {
+        if (!active) return;
+        return processIDPCallback({
           turnstileToken,
           provider,
           id,
@@ -67,9 +69,10 @@ export function IdpProcessHandler({
           sessionId,
           linkFingerprint,
           postErrorRedirectUrl,
-        }),
-      )
+        });
+      })
       .then((result) => {
+        if (!active || !result) return;
         if (result.error) {
           console.error("[IDP Process Handler] Error:", result.error);
           setError(result.error);
@@ -93,10 +96,15 @@ export function IdpProcessHandler({
         setLoading(false);
       })
       .catch((err) => {
+        if (!active) return;
         console.error("[IDP Process Handler] Unexpected error:", err);
         setError(err instanceof Error ? err.message : t("processing.unexpectedError"));
         setLoading(false);
       });
+    return () => {
+      active = false;
+      executedRef.current = false;
+    };
   }, [
     provider,
     id,
