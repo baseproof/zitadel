@@ -29,20 +29,9 @@ type Props = {
   requestId?: string;
   // "noPasskey": "Passwordless sign-in" found no passkey on this account (02a·E).
   notice?: "noPasskey";
-  // An administrator reset the password (02a·F): no password is asked for,
-  // the emailed link sets a new one.
-  resetRequired?: boolean;
 };
 
-export function PasswordForm({
-  loginSettings,
-  loginName,
-  organization,
-  defaultOrganization,
-  requestId,
-  notice,
-  resetRequired,
-}: Props) {
+export function PasswordForm({ loginSettings, loginName, organization, defaultOrganization, requestId, notice }: Props) {
   // Buttons stay enabled; the checks run when the user submits.
   const {
     register,
@@ -151,30 +140,6 @@ export function PasswordForm({
       <Translated i18nKey="verify.useDifferentEmail" namespace="password" />
     </Button>
   );
-
-  // 02a·F: an administrator reset the password; the old one no longer works.
-  if (resetRequired) {
-    return (
-      <div className="flex w-full flex-col gap-3">
-        <Alert type={AlertType.INFO} title={t("verify.resetByAdmin.title")}>
-          {t("verify.resetByAdmin.description")}
-        </Alert>
-        {error && <Alert>{error}</Alert>}
-        <Button
-          type="button"
-          className="mt-3 w-full"
-          variant={ButtonVariants.Primary}
-          disabled={loading}
-          onClick={() => resetPasswordAndContinue()}
-          data-testid="send-link-button"
-        >
-          {loading && <Spinner className="mr-2 h-5 w-5" />}
-          <Translated i18nKey="verify.resetByAdmin.sendLink" namespace="password" />
-        </Button>
-        {useDifferentEmail}
-      </div>
-    );
-  }
 
   // 02a·B: Zitadel locked the account; only an administrator unlocks it.
   if (locked) {

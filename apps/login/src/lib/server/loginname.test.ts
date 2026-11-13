@@ -300,6 +300,61 @@ describe("sendLoginname", () => {
     });
 
     describe("Single authentication method", () => {
+      // Observed on the initial administrator's first login in east5-dev:
+      // passwordChangeRequired incorrectly hid password entry behind an email reset.
+      test.each([
+        [false, [AuthenticationMethodType.PASSWORD]],
+        [true, [AuthenticationMethodType.PASSWORD]],
+        [false, [AuthenticationMethodType.PASSWORD, AuthenticationMethodType.TOTP]],
+        [true, [AuthenticationMethodType.PASSWORD, AuthenticationMethodType.TOTP]],
+      ])(
+        "requires password verification before changing it (enumeration=%s, methods=%j)",
+        async (ignoreUnknownUsernames, authMethodTypes) => {
+          mockGetLoginSettings.mockResolvedValue({ allowLocalAuthentication: true, ignoreUnknownUsernames });
+          mockSearchUsers.mockResolvedValue({
+            result: [
+              {
+                ...mockUser,
+                type: {
+                  case: "human",
+                  value: { passwordChangeRequired: true, email: { email: "user@example.com", isVerified: true } },
+                },
+              },
+            ],
+          });
+          mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes });
+
+          const result = await sendLoginname({ loginName: "user@example.com", organization: "org123", requestId: "req123" });
+
+          expect(result).toHaveProperty("redirect");
+          if (!("redirect" in result) || !result.redirect) throw new Error("Expected password redirect");
+          const redirect = new URL(result.redirect, "https://login.example.com");
+          expect(redirect.pathname).toBe("/password");
+          expect(Object.fromEntries(redirect.searchParams)).toEqual({
+            loginName: "user@example.com",
+            organization: "org123",
+            requestId: "req123",
+          });
+          expect(mockCreateSessionAndUpdateCookie).toHaveBeenCalledTimes(ignoreUnknownUsernames ? 0 : 1);
+          const { trySendVerification } = await import("./verify");
+          expect(trySendVerification).not.toHaveBeenCalled();
+        },
+      );
+
+      test("keeps password entry and the no-passkey notice when a password change is required", async () => {
+        mockSearchUsers.mockResolvedValue({
+          result: [{ ...mockUser, type: { case: "human", value: { passwordChangeRequired: true } } }],
+        });
+        mockListAuthenticationMethodTypes.mockResolvedValue({ authMethodTypes: [AuthenticationMethodType.PASSWORD] });
+        const result = await sendLoginname({ loginName: "user@example.com", method: "passkey" });
+        expect(result).toHaveProperty("redirect");
+        if (!("redirect" in result) || !result.redirect) throw new Error("Expected password redirect");
+        const redirect = new URL(result.redirect, "https://login.example.com");
+        expect(redirect.pathname).toBe("/password");
+        expect(redirect.searchParams.get("notice")).toBe("noPasskey");
+        expect(redirect.searchParams.has("reset")).toBe(false);
+      });
+
       test("should redirect to password when user has only password method and it's allowed", async () => {
         mockListAuthenticationMethodTypes.mockResolvedValue({
           authMethodTypes: [AuthenticationMethodType.PASSWORD],

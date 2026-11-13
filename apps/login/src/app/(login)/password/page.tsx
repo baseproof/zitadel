@@ -85,7 +85,6 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             defaultOrganization={defaultOrganization}
             loginSettings={loginSettings}
             notice={searchParams.notice === "noPasskey" ? "noPasskey" : undefined}
-            resetRequired={searchParams.reset === "required"}
           />
         )}
       </div>
